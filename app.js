@@ -2192,27 +2192,133 @@ function removeEmp(id) {
 function openImportModal() {
   fillSelect('import-cd', scopeCds());
   $('import-text').value = '';
+  $('import-preview').classList.add('hidden');
+  $('import-btn').disabled = true;
+  S._importRows = [];
   openModal('modal-import');
 }
-async function submitImport() {
-  const raw = $('import-text').value.trim();
-  const cd = $('import-cd').value;
-  if (!raw) { toast('Cole a lista de colaboradores.', 'orange'); return; }
-  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-  let ok = 0, dup = 0, bad = 0;
-  for (const line of lines) {
-    const p = line.split(';').map(x => x.trim());
-    if (p.length < 2 || !p[0] || !p[1]) { bad++; continue; }
-    if (M.employees.some(e => e.matricula === p[0])) { dup++; continue; }
-    const rec = await DB.insert('employees', {
-      matricula: p[0], name: p[1], cd,
-      shift: p[2] || SHIFTS[0], sector: p[3] || '—',
-      job_title: p[4] || '', admission_date: (p[5] || '').slice(0, 10), active: true,
-    });
-    M.employees.push(rec); ok++;
+
+/* Normaliza data: aceita 10/05/2021, 10-05-2021, 2021-05-10 e serial do Excel */
+function parseAdmission(v) {
+  const t = String(v || '').trim();
+  if (!t) return '';
+  let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (m) {
+    let [, d, mo, y] = m;
+    if (y.length === 2) y = (+y > 50 ? '19' : '20') + y;
+    return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
-  closeModal('modal-import'); renderCfgEmployees();
-  toast(`${ok} importado(s)${dup ? ' · ' + dup + ' já existiam' : ''}${bad ? ' · ' + bad + ' inválido(s)' : ''}`, ok ? 'green' : 'orange');
+  // serial do Excel (dias desde 30/12/1899)
+  if (/^\d{5}$/.test(t)) {
+    const dt = new Date(Date.UTC(1899, 11, 30) + (+t) * 86400000);
+    return dt.toISOString().slice(0, 10);
+  }
+  return '';
+}
+
+/* Normaliza turno: 1, 1º, 1o, "primeiro", "turno 1" → "1º Turno" */
+function parseShift(v) {
+  const t = String(v || '').trim().toLowerCase();
+  if (!t) return SHIFTS[0];
+  if (/1|prim/.test(t)) return '1º Turno';
+  if (/2|seg/.test(t))  return '2º Turno';
+  if (/3|ter/.test(t))  return '3º Turno';
+  return SHIFTS[0];
+}
+
+function splitLine(line) {
+  // Excel copiado usa TAB; texto digitado costuma usar ; ou ,
+  if (line.includes('\t')) return line.split('\t');
+  if (line.includes(';'))  return line.split(';');
+  if (line.includes(','))  return line.split(',');
+  return [line];
+}
+
+function analyzeImport() {
+  const raw = $('import-text').value;
+  const cd  = $('import-cd').value;
+  const box = $('import-preview'), btn = $('import-btn');
+
+  const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!lines.length) { box.classList.add('hidden'); btn.disabled = true; S._importRows = []; return; }
+
+  const rows = [];
+  const seen = new Set();
+
+  lines.forEach((line, idx) => {
+    const p = splitLine(line).map(x => x.trim().replace(/^["']|["']$/g, ''));
+    const mat = (p[0] || '').replace(/\s+/g, '');
+    const nome = p[1] || '';
+
+    // cabeçalho: primeira linha sem matrícula numérica e com palavra conhecida
+    if (idx === 0 && /matr|nome|colaborador/i.test(line) && !/^\d/.test(mat)) return;
+
+    let status = 'ok', motivo = '';
+    if (!mat || !nome) { status = 'err'; motivo = 'faltou matrícula ou nome'; }
+    else if (seen.has(mat)) { status = 'err'; motivo = 'repetida na lista'; }
+    else if (M.employees.some(e => e.matricula === mat)) { status = 'dup'; motivo = 'já cadastrada'; }
+
+    if (mat) seen.add(mat);
+    rows.push({
+      matricula: mat, name: nome,
+      shift: parseShift(p[2]), sector: (p[3] || '').trim(),
+      job_title: (p[4] || '').trim(), admission_date: parseAdmission(p[5]),
+      cd, status, motivo,
+    });
+  });
+
+  S._importRows = rows;
+  const nOk  = rows.filter(r => r.status === 'ok').length;
+  const nDup = rows.filter(r => r.status === 'dup').length;
+  const nErr = rows.filter(r => r.status === 'err').length;
+
+  $('import-stats').innerHTML =
+    `<span class="import-stat ok">✓ ${nOk} para importar</span>` +
+    (nDup ? `<span class="import-stat dup">↺ ${nDup} já cadastrada${nDup > 1 ? 's' : ''}</span>` : '') +
+    (nErr ? `<span class="import-stat err">✕ ${nErr} com problema</span>` : '');
+
+  $('import-tbody').innerHTML = rows.slice(0, 200).map(r => `
+    <tr class="${r.status}">
+      <td><strong>${esc(r.matricula || '—')}</strong></td>
+      <td>${esc(r.name || '—')}</td>
+      <td style="font-size:12px">${esc(r.shift)}</td>
+      <td style="font-size:12px">${esc(r.sector || '—')}</td>
+      <td style="font-size:12px">${esc(r.job_title || '—')}</td>
+      <td style="font-size:12px;white-space:nowrap">${r.admission_date ? fmtDateISO(r.admission_date) : '—'}</td>
+      <td><span class="row-tag ${r.status}">${r.status === 'ok' ? 'novo' : r.status === 'dup' ? 'existe' : esc(r.motivo)}</span></td>
+    </tr>`).join('') +
+    (rows.length > 200 ? `<tr><td colspan="7" class="text-muted" style="text-align:center">…e mais ${rows.length - 200} linha(s)</td></tr>` : '');
+
+  box.classList.remove('hidden');
+  btn.disabled = nOk === 0;
+  btn.textContent = nOk ? `✅ Importar ${nOk} colaborador${nOk > 1 ? 'es' : ''}` : '✅ Importar';
+}
+
+async function submitImport() {
+  const rows = (S._importRows || []).filter(r => r.status === 'ok');
+  if (!rows.length) { toast('Nenhuma linha válida para importar.', 'orange'); return; }
+  const btn = $('import-btn');
+  btn.disabled = true; btn.textContent = 'Importando...';
+
+  let ok = 0, falhou = 0;
+  for (const r of rows) {
+    try {
+      const rec = await DB.insert('employees', {
+        matricula: r.matricula, name: r.name, cd: r.cd,
+        shift: r.shift, sector: r.sector || '—',
+        job_title: r.job_title, admission_date: r.admission_date || null,
+        active: true,
+      });
+      M.employees.push(rec); ok++;
+    } catch (e) { falhou++; }
+  }
+
+  closeModal('modal-import');
+  renderCfgEmployees();
+  toast(`${ok} colaborador${ok > 1 ? 'es' : ''} importado${ok > 1 ? 's' : ''}` +
+        (falhou ? ` · ${falhou} falhou(ram)` : ''), ok ? 'green' : 'red');
 }
 
 /* -- e-mails -- */

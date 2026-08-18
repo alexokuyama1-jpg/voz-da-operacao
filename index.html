@@ -769,17 +769,27 @@
 </div>
 
 <div id="modal-import" class="modal-overlay hidden" onclick="if(event.target===this)closeModal('modal-import')">
-  <div class="modal">
+  <div class="modal wide">
     <div class="modal-title">📋 Importar Colaboradores <button class="modal-close" onclick="closeModal('modal-import')">✕</button></div>
-    <p class="muted-p">Cole a lista abaixo — uma pessoa por linha, campos separados por ponto e vírgula:</p>
-    <div class="code-hint">matrícula ; nome ; turno ; setor ; função ; admissão (AAAA-MM-DD)</div>
-    <textarea class="form-textarea mono" id="import-text" rows="8" placeholder="20010 ; João Silva ; 1º Turno ; Expedição ; Conferente ; 2021-05-10&#10;20011 ; Maria Costa ; 2º Turno ; Separação ; Separadora ; 2023-01-15"></textarea>
-    <div class="field-hint">Apenas matrícula e nome são obrigatórios — os demais campos podem ficar em branco.</div>
+    <p class="muted-p">Selecione as colunas no Excel, copie (Ctrl+C) e cole aqui. Ordem esperada:</p>
+    <div class="code-hint">matrícula · nome · turno · setor · função · admissão</div>
+    <textarea class="form-textarea mono" id="import-text" rows="7" placeholder="Cole aqui direto do Excel, ou digite uma pessoa por linha:&#10;&#10;20010; João Silva; 1º Turno; Expedição; Conferente; 10/05/2021&#10;20011; Maria Costa; 2º Turno; Separação; Separadora; 15/01/2023" oninput="analyzeImport()"></textarea>
+    <div class="field-hint">Aceita colagem do Excel, ponto e vírgula ou vírgula. O cabeçalho é ignorado automaticamente. Só matrícula e nome são obrigatórios.</div>
+
     <div class="form-group mt-1"><label class="form-label">Centro de Distribuição de destino</label>
-      <select class="form-select" id="import-cd"></select></div>
+      <select class="form-select" id="import-cd" onchange="analyzeImport()"></select></div>
+
+    <div id="import-preview" class="hidden">
+      <div class="import-stats" id="import-stats"></div>
+      <div class="import-table-wrap"><table class="data-table">
+        <thead><tr><th>Matrícula</th><th>Nome</th><th>Turno</th><th>Setor</th><th>Função</th><th>Admissão</th><th></th></tr></thead>
+        <tbody id="import-tbody"></tbody>
+      </table></div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('modal-import')">Cancelar</button>
-      <button class="btn-primary" onclick="submitImport()">✅ Importar</button>
+      <button class="btn-primary" id="import-btn" disabled onclick="submitImport()">✅ Importar</button>
     </div>
   </div>
 </div>
