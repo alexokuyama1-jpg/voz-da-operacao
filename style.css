@@ -556,3 +556,38 @@ table{border-collapse:collapse}
   .flex-gap{width:100%}
   .qr-grid{grid-template-columns:1fr}
 }
+
+/* ============================================================
+   EDITOR DE CARTAZ PERSONALIZADO
+   ============================================================ */
+.flyer-wrap{display:grid;grid-template-columns:1fr 300px;gap:1.25rem;align-items:start}
+@media(max-width:820px){.flyer-wrap{grid-template-columns:1fr}}
+
+.flyer-stage{
+  position:relative;background:var(--bg2);border:1.5px solid var(--line);
+  border-radius:12px;overflow:hidden;line-height:0;
+  box-shadow:var(--sh);user-select:none;touch-action:none;
+}
+.flyer-stage img{width:100%;height:auto;display:block;pointer-events:none}
+.flyer-qr{
+  position:absolute;cursor:grab;line-height:0;
+  border-radius:6px;transition:box-shadow .15s;
+  outline:2px dashed rgba(15,91,191,.5);outline-offset:3px;
+}
+.flyer-qr:hover{box-shadow:0 0 0 4px rgba(15,91,191,.18)}
+.flyer-qr.dragging{cursor:grabbing;outline-color:var(--blue2);box-shadow:0 0 0 5px rgba(15,91,191,.28)}
+.flyer-qr svg{width:100%;height:100%;display:block;border-radius:4px}
+.flyer-qr.boxed{background:#fff;padding:4%;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+
+.flyer-controls{
+  background:#fff;border:1.5px solid var(--line);border-radius:12px;
+  padding:1.15rem;box-shadow:var(--sh);
+}
+.flyer-controls input[type=range]{
+  width:100%;accent-color:var(--blue2);margin-top:4px;
+}
+.flyer-badge{
+  display:inline-flex;align-items:center;gap:6px;padding:4px 11px;
+  border-radius:20px;font-size:11.5px;font-weight:700;
+  background:var(--green-bg);color:var(--green);margin-bottom:.75rem;
+}

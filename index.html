@@ -536,12 +536,71 @@
           <div class="cfg-section-sub">Gere códigos por setor e finalidade para imprimir e colar na operação</div></div>
           <button class="btn-primary shrink sm" onclick="openQrModal()">+ Novo QR Code</button>
         </div>
-        <div class="form-group url-field">
-          <label class="form-label">Endereço público do sistema</label>
-          <input type="text" class="form-input" id="qr-base-url" placeholder="https://seu-usuario.github.io/voz-da-operacao/" oninput="saveBaseUrl()">
-          <div class="field-hint">Cole a URL do GitHub Pages depois de publicar. Todos os QR Codes usam esta base.</div>
+        <div class="form-row url-field">
+          <div class="form-group">
+            <label class="form-label">Endereço público do sistema</label>
+            <input type="text" class="form-input" id="qr-base-url" placeholder="https://voz-da-operacao.pages.dev/" oninput="saveBaseUrl()">
+            <div class="field-hint">Endereço onde o sistema está publicado. Todos os QR Codes usam esta base.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Logotipo do cartaz (opcional)</label>
+            <input type="text" class="form-input" id="qr-logo-url" placeholder="logo.png" oninput="saveLogoUrl()">
+            <div class="field-hint">Suba o arquivo junto com o site e informe o nome. Em branco, usa o texto "LACTALIS".</div>
+          </div>
         </div>
         <div id="qr-list" class="qr-grid"></div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="cfg-section">
+        <div class="cfg-section-head">
+          <div><div class="cfg-section-title">🖼️ Cartaz personalizado</div>
+          <div class="cfg-section-sub">Suba a arte oficial e posicione o QR Code sobre ela</div></div>
+          <div class="flex-gap">
+            <button class="btn-ghost" onclick="document.getElementById('flyer-file').click()">📤 Enviar arte</button>
+            <input type="file" id="flyer-file" accept="image/*" class="hidden" onchange="onFlyerUpload(event)">
+            <button class="btn-ghost danger hidden" id="flyer-remove" onclick="removeFlyer()">🗑️ Remover</button>
+          </div>
+        </div>
+
+        <div id="flyer-empty" class="empty-state">
+          <div class="ei">🖼️</div>
+          <h4>Nenhuma arte enviada</h4>
+          <p class="text-muted">Envie o flyer da campanha (JPG ou PNG) e arraste o QR até o local desejado.</p>
+        </div>
+
+        <div id="flyer-editor" class="hidden">
+          <div class="flyer-wrap">
+            <div class="flyer-stage" id="flyer-stage">
+              <img id="flyer-img" alt="">
+              <div class="flyer-qr" id="flyer-qr"></div>
+            </div>
+            <div class="flyer-controls">
+              <div class="form-group">
+                <label class="form-label">Tamanho do QR</label>
+                <input type="range" id="flyer-size" min="8" max="45" value="22" oninput="updateFlyerQr()">
+                <div class="field-hint"><span id="flyer-size-val">22</span>% da largura da arte</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Moldura branca</label>
+                <div class="check-list">
+                  <label class="check-item"><input type="checkbox" id="flyer-box" checked onchange="updateFlyerQr()"> Fundo branco atrás do código</label>
+                </div>
+                <div class="field-hint">Recomendado — garante a leitura sobre fundos escuros ou com desenho.</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Qual QR usar de exemplo</label>
+                <select class="form-select" id="flyer-preview-qr" onchange="updateFlyerQr()"></select>
+              </div>
+              <div class="info-box blue">
+                <span class="info-box-icon">🖱️</span>
+                <div>Arraste o código sobre a arte para reposicionar. A posição vale para todos os QR Codes.</div>
+              </div>
+              <button class="btn-primary full mt-1" onclick="saveFlyer()">💾 Salvar posição</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div></div>
 
