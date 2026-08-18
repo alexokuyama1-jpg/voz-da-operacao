@@ -607,3 +607,18 @@ table{border-collapse:collapse}
 .row-tag.ok{background:var(--green-bg);color:var(--green)}
 .row-tag.dup{background:#fce6c4;color:#8a5000}
 .row-tag.err{background:#f8cfcf;color:#8a1010}
+
+/* ---------- criticidade fixada no tema ---------- */
+.theme-tile .tt-crit{
+  display:inline-block;margin-top:5px;padding:2px 9px;border-radius:20px;
+  font-size:10px;font-weight:800;letter-spacing:.2px;
+}
+.theme-tile .tt-crit.baixa{background:var(--green-bg);color:var(--green)}
+.theme-tile .tt-crit.media{background:var(--orange-bg);color:var(--orange)}
+.theme-tile .tt-crit.alta {background:var(--red-bg);color:var(--red)}
+
+.crit-select{font-weight:700}
+.crit-select.baixa{border-color:var(--green);color:var(--green);background:var(--green-bg)}
+.crit-select.media{border-color:var(--orange);color:var(--orange);background:var(--orange-bg)}
+.crit-select.alta {border-color:var(--red);color:var(--red);background:var(--red-bg)}
+.cd-select{max-width:120px;font-weight:600}

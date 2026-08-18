@@ -126,9 +126,8 @@
       <div class="wiz-progress">
         <div class="wiz-step active" id="pstep-0"><div class="wiz-num">1</div><div class="wiz-label">Você</div></div>
         <div class="wiz-step" id="pstep-1"><div class="wiz-num">2</div><div class="wiz-label">Tema</div></div>
-        <div class="wiz-step" id="pstep-2"><div class="wiz-num">3</div><div class="wiz-label">Criticidade</div></div>
-        <div class="wiz-step" id="pstep-3"><div class="wiz-num">4</div><div class="wiz-label">Detalhe</div></div>
-        <div class="wiz-step" id="pstep-4"><div class="wiz-num">5</div><div class="wiz-label">Confirmar</div></div>
+        <div class="wiz-step" id="pstep-2"><div class="wiz-num">3</div><div class="wiz-label">Detalhe</div></div>
+        <div class="wiz-step" id="pstep-3"><div class="wiz-num">4</div><div class="wiz-label">Confirmar</div></div>
       </div>
 
       <div id="pp-1">
@@ -149,8 +148,9 @@
 
       <div id="pp-2" class="hidden">
         <div class="card pad">
-          <p class="muted-p">Selecione o tema. O supervisor responsável já está vinculado a cada tema.</p>
+          <p class="muted-p">Selecione o tema. O prazo de resolução e o supervisor responsável já estão definidos em cada um.</p>
           <div class="theme-grid" id="log-theme-grid"></div>
+          <div id="pp2-selected" class="hidden"></div>
         </div>
         <div class="wiz-actions">
           <button class="btn-secondary" onclick="pontoStep(1)">← Voltar</button>
@@ -160,24 +160,7 @@
 
       <div id="pp-3" class="hidden">
         <div class="card pad">
-          <p class="muted-p">Qual a criticidade? O prazo de resolução muda conforme sua escolha.</p>
-          <div class="crit-grid">
-            <div class="crit-tile baixa" id="crit-baixa" onclick="selCrit('baixa')"><div class="ct-icon">🟢</div><div class="ct-name">Baixa</div><div class="ct-time">48 horas</div></div>
-            <div class="crit-tile media" id="crit-media" onclick="selCrit('media')"><div class="ct-icon">🟡</div><div class="ct-name">Média</div><div class="ct-time">72 horas</div></div>
-            <div class="crit-tile alta"  id="crit-alta"  onclick="selCrit('alta')"><div class="ct-icon">🔴</div><div class="ct-name">Alta</div><div class="ct-time">96 horas</div></div>
-          </div>
-          <div class="info-box blue" style="margin-top:1rem"><span class="info-box-icon">💡</span>
-            <div>Use <strong>Alta</strong> apenas para risco real de segurança ou parada de operação.</div></div>
-        </div>
-        <div class="wiz-actions">
-          <button class="btn-secondary" onclick="pontoStep(2)">← Voltar</button>
-          <button class="btn-primary" id="pp3-next" disabled onclick="pontoStep(4)">Próximo →</button>
-        </div>
-      </div>
-
-      <div id="pp-4" class="hidden">
-        <div class="card pad">
-          <div class="badge-row" id="pp4-badges"></div>
+          <div class="badge-row" id="pp3-badges"></div>
           <div class="form-group"><label class="form-label">Assunto</label>
             <input type="text" class="form-input" id="pp-subject" placeholder="Ex: Mesa da área de descanso bagunçada" maxlength="90"></div>
           <div class="form-group"><label class="form-label">Local exato (opcional)</label>
@@ -187,24 +170,24 @@
             <div class="char-hint" id="pp-desc-cnt">0 / 300</div></div>
         </div>
         <div class="wiz-actions">
-          <button class="btn-secondary" onclick="pontoStep(3)">← Voltar</button>
-          <button class="btn-primary" onclick="pontoStep(5)">Revisar →</button>
+          <button class="btn-secondary" onclick="pontoStep(2)">← Voltar</button>
+          <button class="btn-primary" onclick="pontoStep(4)">Revisar →</button>
         </div>
       </div>
 
-      <div id="pp-5" class="hidden">
+      <div id="pp-4" class="hidden">
         <div class="card pad">
           <div class="card-h">Confirme antes de enviar</div>
-          <div class="confirm-box"><div class="cb-label">Registrado por</div><div class="cb-val" id="pp5-author"></div></div>
-          <div class="confirm-box"><div class="cb-label">Tema</div><div class="cb-val" id="pp5-tema"></div></div>
-          <div class="confirm-box"><div class="cb-label">Criticidade / Prazo</div><div class="cb-val" id="pp5-crit"></div></div>
-          <div class="confirm-box"><div class="cb-label">Supervisor responsável</div><div class="cb-val" id="pp5-sup"></div></div>
-          <div class="confirm-box"><div class="cb-label">Assunto</div><div class="cb-val" id="pp5-subject"></div></div>
-          <div class="confirm-box last"><div class="cb-label">Detalhe</div><div class="cb-val small" id="pp5-desc"></div></div>
+          <div class="confirm-box"><div class="cb-label">Registrado por</div><div class="cb-val" id="pp4-author"></div></div>
+          <div class="confirm-box"><div class="cb-label">Tema</div><div class="cb-val" id="pp4-tema"></div></div>
+          <div class="confirm-box"><div class="cb-label">Criticidade / Prazo</div><div class="cb-val" id="pp4-crit"></div></div>
+          <div class="confirm-box"><div class="cb-label">Supervisor responsável</div><div class="cb-val" id="pp4-sup"></div></div>
+          <div class="confirm-box"><div class="cb-label">Assunto</div><div class="cb-val" id="pp4-subject"></div></div>
+          <div class="confirm-box last"><div class="cb-label">Detalhe</div><div class="cb-val small" id="pp4-desc"></div></div>
           <div class="info-box orange"><span class="info-box-icon">⏰</span><div>O contador inicia ao confirmar e o supervisor é notificado.</div></div>
         </div>
         <div class="wiz-actions">
-          <button class="btn-secondary" onclick="pontoStep(4)">← Editar</button>
+          <button class="btn-secondary" onclick="pontoStep(3)">← Editar</button>
           <button class="btn-primary" onclick="submitPonto()">✅ Registrar Ponto</button>
         </div>
       </div>

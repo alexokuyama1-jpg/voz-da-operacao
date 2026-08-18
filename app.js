@@ -36,7 +36,7 @@ const S = {
   filter: 'todos',
   timer: null,
   // wizard ponto
-  pEmp: null, pTheme: null, pCrit: null,
+  pEmp: null, pTheme: null,
   // wizard pesquisa
   sSel: [], sActive: [], sStep: 0, sAnswers: {}, sRound: null, sEmp: null,
   // wizard voto
@@ -361,17 +361,17 @@ function startCanal(c) {
 /* ══════════ PONTO DE ATENÇÃO ══════════ */
 function startPonto() {
   $('wiz-ponto').classList.remove('hidden');
-  S.pEmp = null; S.pTheme = null; S.pCrit = null;
-  ['pp-1', 'pp-2', 'pp-3', 'pp-4', 'pp-5', 'pp-ok'].forEach(i => $(i).classList.add('hidden'));
+  S.pEmp = null; S.pTheme = null;
+  ['pp-1', 'pp-2', 'pp-3', 'pp-4', 'pp-ok'].forEach(i => $(i).classList.add('hidden'));
   $('pp-1').classList.remove('hidden');
   ['pp-matricula', 'pp-subject', 'pp-local', 'pp-desc'].forEach(i => $(i).value = '');
   $('pp-emp-card').classList.add('hidden');
-  $('pp1-next').disabled = true; $('pp2-next').disabled = true; $('pp3-next').disabled = true;
+  $('pp2-selected').classList.add('hidden');
+  $('pp1-next').disabled = true; $('pp2-next').disabled = true;
   $('pp-desc-cnt').textContent = '0 / 300';
   $('pp-mat-hint').textContent = 'Digite sua matrícula';
   $('pp-mat-hint').className = 'field-hint';
   $('pp-matricula').className = 'form-input';
-  document.querySelectorAll('.crit-tile').forEach(t => t.classList.remove('sel'));
   setPontoProgress(1);
 }
 
@@ -404,37 +404,11 @@ async function checkPontoMat() {
 }
 
 function setPontoProgress(cur) {
-  [0, 1, 2, 3, 4].forEach(i => {
+  [0, 1, 2, 3].forEach(i => {
     const el = $('pstep-' + i);
     el.className = 'wiz-step' + (i < cur - 1 ? ' done' : i === cur - 1 ? ' active' : '');
     el.querySelector('.wiz-num').textContent = i < cur - 1 ? '✓' : (i + 1);
   });
-}
-
-function pontoStep(n) {
-  ['pp-1', 'pp-2', 'pp-3', 'pp-4', 'pp-5', 'pp-ok'].forEach(i => $(i).classList.add('hidden'));
-  setPontoProgress(n);
-  if (n === 2) renderPontoThemes();
-  if (n === 4) {
-    const t = byId(M.log_themes, S.pTheme), c = CRIT[S.pCrit];
-    const sup = t ? byId(M.profiles, t.supervisor_id) : null;
-    $('pp4-badges').innerHTML =
-      `<span class="badge badge-blue">${t ? t.icon : ''} ${esc(t ? t.label : '')}</span>` +
-      `<span class="badge ${c.badge}">${c.icon} ${c.label} · ${c.hours}h</span>` +
-      (sup ? `<span class="badge badge-gray">👤 ${esc(sup.name)}</span>` : '');
-  }
-  if (n === 5) {
-    const t = byId(M.log_themes, S.pTheme), c = CRIT[S.pCrit];
-    const sup = t ? byId(M.profiles, t.supervisor_id) : null;
-    $('pp5-author').textContent = `${S.pEmp.name} (${S.pEmp.matricula})`;
-    $('pp5-tema').textContent = `${t.icon} ${t.label}`;
-    $('pp5-crit').textContent = `${c.icon} ${c.label} — prazo de ${c.hours} horas`;
-    $('pp5-sup').textContent = sup ? `${sup.name} (${ROLE_LABEL[sup.role]})` : 'Não definido';
-    $('pp5-subject').textContent = $('pp-subject').value.trim();
-    $('pp5-desc').textContent = $('pp-desc').value.trim();
-  }
-  $('pp-' + n).classList.remove('hidden');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function renderPontoThemes() {
@@ -445,31 +419,71 @@ function renderPontoThemes() {
     return;
   }
   g.innerHTML = themes.map(t => {
-    const sup = byId(M.profiles, t.supervisor_id);
+    const c = CRIT[t.criticality] || CRIT.media;
     return `<div class="theme-tile ${S.pTheme === t.id ? 'sel' : ''}" onclick="selLogTheme('${t.id}')">
       <div class="tt-icon">${t.icon}</div><div class="tt-name">${esc(t.label)}</div>
-      <div class="tt-sup">${sup ? esc(sup.name.split(' ')[0]) : 'sem supervisor'}</div></div>`;
+      <div class="tt-crit ${t.criticality || 'media'}">${c.icon} ${c.hours}h</div></div>`;
   }).join('');
 }
-function selLogTheme(id) { S.pTheme = id; renderPontoThemes(); $('pp2-next').disabled = false; }
-function selCrit(c) {
-  S.pCrit = c;
-  document.querySelectorAll('.crit-tile').forEach(t => t.classList.remove('sel'));
-  $('crit-' + c).classList.add('sel');
-  $('pp3-next').disabled = false;
+
+/* A criticidade é fixa por tema — quem registra não escolhe o prazo. */
+function selLogTheme(id) {
+  S.pTheme = id;
+  renderPontoThemes();
+  $('pp2-next').disabled = false;
+  const t = byId(M.log_themes, id);
+  const c = CRIT[t.criticality] || CRIT.media;
+  const sup = byId(M.profiles, t.supervisor_id);
+  const box = $('pp2-selected');
+  box.classList.remove('hidden');
+  box.className = 'info-box ' + (t.criticality === 'alta' ? 'red' : t.criticality === 'baixa' ? 'green' : 'orange');
+  box.style.marginTop = '1rem';
+  box.innerHTML = `<span class="info-box-icon">${c.icon}</span>
+    <div><strong>${esc(t.label)} — criticidade ${c.label.toLowerCase()}.</strong>
+    Prazo de <strong>${c.hours} horas</strong> para tratativa.
+    ${sup ? 'Responsável: <strong>' + esc(sup.name) + '</strong>.' : ''}</div>`;
+}
+
+function pontoStep(n) {
+  ['pp-1', 'pp-2', 'pp-3', 'pp-4', 'pp-ok'].forEach(i => $(i).classList.add('hidden'));
+  setPontoProgress(n);
+  const t = byId(M.log_themes, S.pTheme);
+  const c = t ? (CRIT[t.criticality] || CRIT.media) : CRIT.media;
+
+  if (n === 2) renderPontoThemes();
+  if (n === 3) {
+    const sup = t ? byId(M.profiles, t.supervisor_id) : null;
+    $('pp3-badges').innerHTML =
+      `<span class="badge badge-blue">${t ? t.icon : ''} ${esc(t ? t.label : '')}</span>` +
+      `<span class="badge ${c.badge}">${c.icon} ${c.label} · ${c.hours}h</span>` +
+      (sup ? `<span class="badge badge-gray">👤 ${esc(sup.name)}</span>` : '');
+  }
+  if (n === 4) {
+    const sup = t ? byId(M.profiles, t.supervisor_id) : null;
+    $('pp4-author').textContent  = `${S.pEmp.name} (${S.pEmp.matricula})`;
+    $('pp4-tema').textContent    = `${t.icon} ${t.label}`;
+    $('pp4-crit').textContent    = `${c.icon} ${c.label} — prazo de ${c.hours} horas (definido pelo tema)`;
+    $('pp4-sup').textContent     = sup ? `${sup.name} (${ROLE_LABEL[sup.role]})` : 'Não definido';
+    $('pp4-subject').textContent = $('pp-subject').value.trim();
+    $('pp4-desc').textContent    = $('pp-desc').value.trim();
+  }
+  $('pp-' + n).classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 async function submitPonto() {
   const subj = $('pp-subject').value.trim(), desc = $('pp-desc').value.trim(), local = $('pp-local').value.trim();
-  if (subj.length < 5) { toast('Descreva o assunto (mín. 5 caracteres).', 'orange'); pontoStep(4); return; }
-  if (desc.length < 10) { toast('Detalhe o ponto (mín. 10 caracteres).', 'orange'); pontoStep(4); return; }
-  const t = byId(M.log_themes, S.pTheme), c = CRIT[S.pCrit];
+  if (subj.length < 5) { toast('Descreva o assunto (mín. 5 caracteres).', 'orange'); pontoStep(3); return; }
+  if (desc.length < 10) { toast('Detalhe o ponto (mín. 10 caracteres).', 'orange'); pontoStep(3); return; }
+  const t = byId(M.log_themes, S.pTheme);
+  const crit = t.criticality || 'media';
+  const c = CRIT[crit];
   let rec;
   try {
     if (DB.online) {
-      // O servidor valida matrícula, tema e criticidade e define o supervisor.
+      // Criticidade, prazo e supervisor vêm do tema, definidos no servidor.
       await DB.rpc('register_occurrence', {
-        p_matricula: S.pEmp.matricula, p_theme: S.pTheme, p_criticality: S.pCrit,
+        p_matricula: S.pEmp.matricula, p_theme: S.pTheme,
         p_title: subj, p_description: desc, p_location: local,
       });
       rec = { cd: S.cd, title: subj };
@@ -478,7 +492,7 @@ async function submitPonto() {
         cd: S.cd, theme_id: S.pTheme, title: subj, description: desc, location: local,
         author_matricula: S.pEmp.matricula, author_name: S.pEmp.name,
         author_shift: S.pEmp.shift, author_sector: S.pEmp.sector,
-        criticality: S.pCrit, sla_hours: c.hours, supervisor_id: t.supervisor_id,
+        criticality: crit, sla_hours: c.hours, supervisor_id: t.supervisor_id,
         status: 'open', resolved_at: null, resolved_by: null, resolution_note: null,
       });
       M.occurrences.push(rec);
@@ -488,7 +502,7 @@ async function submitPonto() {
   const sup = byId(M.profiles, t.supervisor_id);
   $('pp-ok-msg').innerHTML = `Prazo de <strong>${c.hours} horas</strong> iniciado.` +
     (sup ? ` Encaminhado para <strong>${esc(sup.name)}</strong>.` : '');
-  ['pp-1', 'pp-2', 'pp-3', 'pp-4', 'pp-5'].forEach(i => $(i).classList.add('hidden'));
+  ['pp-1', 'pp-2', 'pp-3', 'pp-4'].forEach(i => $(i).classList.add('hidden'));
   $('pp-ok').classList.remove('hidden');
   refreshBanner();
 }
@@ -2370,22 +2384,34 @@ async function removeEmail(id) {
 function renderCfgLogThemes() {
   if (!S.draftLogThemes) S.draftLogThemes = JSON.parse(JSON.stringify(M.log_themes));
   const sups = M.profiles.filter(u => u.role === 'supervisor' || u.role === 'admin');
-  $('cfg-log-themes').innerHTML = S.draftLogThemes.map((t, i) => `
+  const cds  = scopeCds();
+  $('cfg-log-themes').innerHTML = S.draftLogThemes.map((t, i) => {
+    const c = CRIT[t.criticality] || CRIT.media;
+    return `
     <div class="theme-editor-item"><div class="theme-editor-header">
       <input class="theme-editor-icon-input" value="${esc(t.icon)}" maxlength="2" oninput="S.draftLogThemes[${i}].icon=this.value">
       <input class="theme-editor-name-input" value="${esc(t.label)}" oninput="S.draftLogThemes[${i}].label=this.value">
-      <span class="cd-tag">${esc(t.cd.replace('CD ', ''))}</span>
+      <select class="sup-select cd-select" onchange="S.draftLogThemes[${i}].cd=this.value;renderCfgLogThemes()">
+        ${cds.map(cd => `<option value="${esc(cd)}" ${t.cd === cd ? 'selected' : ''}>${esc(cd.replace('CD ', ''))}</option>`).join('')}
+      </select>
+      <select class="sup-select crit-select ${t.criticality || 'media'}" onchange="S.draftLogThemes[${i}].criticality=this.value;renderCfgLogThemes()">
+        <option value="baixa" ${t.criticality === 'baixa' ? 'selected' : ''}>🟢 Baixa · 48h</option>
+        <option value="media" ${(t.criticality || 'media') === 'media' ? 'selected' : ''}>🟡 Média · 72h</option>
+        <option value="alta"  ${t.criticality === 'alta'  ? 'selected' : ''}>🔴 Alta · 96h</option>
+      </select>
       <select class="sup-select" onchange="S.draftLogThemes[${i}].supervisor_id=this.value||null">
         <option value="">— sem supervisor —</option>
         ${sups.map(u => `<option value="${u.id}" ${t.supervisor_id === u.id ? 'selected' : ''}>👤 ${esc(u.name)}</option>`).join('')}
       </select>
       <button class="btn-icon del" onclick="removeLogTheme(${i})">🗑</button>
-    </div></div>`).join('') || noData('Nenhum tema cadastrado.');
+    </div></div>`;
+  }).join('') || noData('Nenhum tema cadastrado.');
 }
 function addLogTheme() {
   if (!S.draftLogThemes) S.draftLogThemes = JSON.parse(JSON.stringify(M.log_themes));
   const sup = M.profiles.find(u => u.role === 'supervisor');
-  S.draftLogThemes.push({ id: 'new_' + Date.now(), label: 'Novo Tema', icon: '📌', cd: scopeCds()[0], supervisor_id: sup ? sup.id : null, active: true });
+  S.draftLogThemes.push({ id: 'new_' + Date.now(), label: 'Novo Tema', icon: '📌', cd: scopeCds()[0],
+    criticality: 'media', supervisor_id: sup ? sup.id : null, active: true });
   renderCfgLogThemes();
   toast('Tema adicionado. Clique em Salvar para confirmar.', 'blue');
 }
