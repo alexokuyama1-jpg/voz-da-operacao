@@ -1558,6 +1558,11 @@ async function saveBaseUrl() {
   await DB.update('app_settings', 'app', { base_url: M.settings.base_url });
   renderQrList();
 }
+async function saveLogoUrl() {
+  M.settings.logo_url = $('qr-logo-url').value.trim();
+  try { await DB.update('app_settings', 'app', { logo_url: M.settings.logo_url }); }
+  catch (e) { /* coluna pode não existir ainda — o cartaz usa o texto padrão */ }
+}
 function qrUrlFor(q) {
   let u = baseUrl();
   if (!u.endsWith('/') && !u.endsWith('.html')) u += '/';
@@ -1569,11 +1574,14 @@ function qrUrlFor(q) {
 }
 function renderQrTab() {
   $('qr-base-url').value = M.settings.base_url || '';
+  $('qr-logo-url').value = M.settings.logo_url || '';
   fillSelect('qr-cd', scopeCds());
   renderQrList();
+  renderFlyerEditor();
 }
 function renderQrList() {
   const list = M.qr_codes.filter(q => scopeCds().includes(q.cd));
+  const hasFlyer = !!(M.settings.flyer_image);
   const PURPOSE = { menu: '📋 Menu completo', ponto: '⚡ Ponto de atenção', pesquisa: '📝 Pesquisa', voto: '🗳️ Votação' };
   $('qr-list').innerHTML = list.length ? list.map(q => {
     const url = qrUrlFor(q);
@@ -1588,7 +1596,9 @@ function renderQrList() {
       <div class="qr-url">${esc(url)}</div>
       <div class="qr-actions">
         <button class="btn-ghost" onclick="downloadQr('${q.id}')">⬇️ PNG</button>
-        <button class="btn-ghost" onclick="printQr('${q.id}')">🖨️ Cartaz</button>
+        <button class="btn-ghost" onclick="printQr('${q.id}')">🖨️ Padrão</button>
+        ${hasFlyer ? `<button class="btn-ghost" onclick="printFlyer('${q.id}')">🖼️ Arte</button>
+        <button class="btn-ghost" onclick="downloadFlyer('${q.id}')">⬇️ Arte PNG</button>` : ''}
       </div></div>`;
   }).join('') : emptyBox('📱', 'Nenhum QR Code criado', 'Clique em "+ Novo QR Code" para gerar o primeiro.');
 }
@@ -1604,7 +1614,7 @@ async function submitQr() {
     label, cd: $('qr-cd').value, purpose: $('qr-purpose').value, sector: $('qr-sector').value.trim(),
   });
   M.qr_codes.push(rec);
-  closeModal('modal-qr'); renderQrList();
+  closeModal('modal-qr'); renderQrList(); renderFlyerEditor();
   toast('QR Code gerado!', 'green');
 }
 async function removeQr(id) {
@@ -1623,38 +1633,408 @@ function downloadQr(id) {
 function printQr(id) {
   const q = byId(M.qr_codes, id); if (!q) return;
   const url = qrUrlFor(q);
-  const svg = QRCode.toSVG(url, { size: 420 });
+  const svg = QRCode.toSVG(url, { size: 300, dark: '#0a2a6b' });
+  const logo = (M.settings.logo_url || '').trim();
+
   const PURPOSE = {
-    menu:     { t: 'Voz da Operação', s: 'Registre pontos de atenção, vote e responda a pesquisa' },
-    ponto:    { t: 'Ponto de Atenção', s: 'Algo precisa ser resolvido? Aponte aqui pelo seu celular' },
-    pesquisa: { t: 'Pesquisa de Clima', s: 'Sua opinião é anônima e ajuda a melhorar o nosso dia a dia' },
-    voto:     { t: 'Eleição do Porta-Voz', s: 'Escolha quem vai representar o seu turno' },
+    menu:     { call: 'FALA AÍ,<br>A GENTE ESCUTA!',        cta: 'ESCANEIE E PARTICIPE' },
+    ponto:    { call: 'VIU ALGO<br>PARA MELHORAR?',          cta: 'ESCANEIE E REGISTRE' },
+    pesquisa: { call: 'SUA OPINIÃO<br>IMPORTA!',             cta: 'ESCANEIE E RESPONDA' },
+    voto:     { call: 'ESCOLHA QUEM<br>VAI TE REPRESENTAR!', cta: 'ESCANEIE E VOTE' },
   };
   const p = PURPOSE[q.purpose] || PURPOSE.menu;
+
+  const BENEFITS = [
+    { i: '💡', t: 'Compartilhe ideias, sugestões e melhorias' },
+    { i: '👥', t: 'Ajuda a tornar nossa operação mais segura e ágil' },
+    { i: '📈', t: 'Suas ideias viram ações que geram resultados reais' },
+    { i: '🏆', t: 'Reconhecimento para quem contribui com o crescimento' },
+  ];
+
   const w = window.open('', '_blank');
-  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${esc(q.label)}</title>
-    <style>
-      @page{size:A4;margin:14mm}
-      *{box-sizing:border-box;margin:0;padding:0}
-      body{font-family:'Segoe UI',Arial,sans-serif;text-align:center;color:#04336b;padding:10mm}
-      .badge{display:inline-block;background:#e8f2fd;color:#0f5bbf;padding:8px 22px;border-radius:30px;font-size:15px;font-weight:700;margin-bottom:22px}
-      h1{font-size:44px;font-weight:800;line-height:1.1;margin-bottom:10px}
-      .sub{font-size:19px;color:#3a5572;margin-bottom:28px;line-height:1.5}
-      .qr{display:inline-block;border:5px solid #04336b;border-radius:20px;padding:16px;line-height:0}
-      .how{margin-top:26px;font-size:17px;color:#3a5572;line-height:1.7}
-      .foot{margin-top:30px;padding-top:16px;border-top:2px solid #cddaee;font-size:14px;color:#7a93b0}
-      .loc{font-size:22px;font-weight:700;color:#04336b;margin-top:14px}
-    </style></head><body>
-    <div class="badge">🎙️ VOZ DA OPERAÇÃO</div>
-    <h1>${esc(p.t)}</h1>
-    <div class="sub">${esc(p.s)}</div>
-    <div class="qr">${svg}</div>
-    <div class="how">📱 Aponte a câmera do seu celular para o código acima</div>
-    <div class="loc">${esc(q.cd)}${q.sector ? ' · ' + esc(q.sector) : ''}</div>
-    <div class="foot">${esc(q.label)} · Lactalis Brasil<br>Sua participação é confidencial e faz a diferença</div>
-    <script>window.onload=()=>setTimeout(()=>window.print(),400)<\/script>
-    </body></html>`);
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>${esc(q.label)}</title>
+<style>
+  @page { size: A4 portrait; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; }
+
+  .sheet {
+    width: 210mm; height: 297mm; position: relative; overflow: hidden;
+    background: #0d2f6b; color: #fff; display: flex; flex-direction: column;
+  }
+  /* ondas decorativas */
+  .wave { position: absolute; border-radius: 50%; pointer-events: none; }
+  .w1 { width: 340mm; height: 200mm; background: #10429b; top: -95mm; left: -70mm; }
+  .w2 { width: 260mm; height: 150mm; background: rgba(255,255,255,.06); top: 118mm; left: -60mm; }
+
+  /* topo */
+  .top { position: relative; padding: 9mm 14mm 0; text-align: center; }
+  .brand { font-size: 17pt; font-weight: 800; letter-spacing: 3px; }
+  .brand small { display: block; font-size: 8pt; letter-spacing: 5px; opacity: .8; font-weight: 600; margin-top: 1mm; }
+  .brand img { max-height: 15mm; max-width: 55mm; }
+
+  .title { margin-top: 5mm; line-height: .82; }
+  .title .l1 { font-size: 50pt; font-weight: 900; letter-spacing: -2px; }
+  .title .l2 { font-size: 34pt; font-weight: 900; letter-spacing: -1px; }
+  .title .l2 em { font-style: normal; font-size: 17pt; opacity: .85; margin-right: 3mm; }
+
+  .tagline {
+    margin-top: 4mm; font-size: 7pt; font-weight: 700;
+    letter-spacing: 1.6px; opacity: .9; text-transform: uppercase;
+  }
+
+  /* balão de chamada */
+  .bubble {
+    position: relative; display: inline-block; margin-top: 5mm;
+    background: #fff; color: #0d2f6b; border-radius: 8mm;
+    padding: 4mm 10mm; font-size: 18pt; font-weight: 900; line-height: 1.05;
+  }
+  .bubble::after {
+    content: ''; position: absolute; bottom: -4mm; left: 14mm;
+    border-width: 4mm 4mm 0 0; border-style: solid; border-color: #fff transparent transparent transparent;
+  }
+
+  /* corpo branco */
+  .body {
+    position: relative; background: #fff; color: #0d2f6b;
+    margin-top: 7mm; flex: 1; border-radius: 12mm 12mm 0 0;
+    padding: 7mm 12mm 0; text-align: center;
+  }
+  .intro { font-size: 9.5pt; line-height: 1.45; max-width: 150mm; margin: 0 auto; }
+  .intro b { color: #0b5fd4; }
+
+  .sec-label {
+    margin: 5.5mm 0 4mm; font-size: 9pt; font-weight: 900;
+    letter-spacing: 1.2px; color: #0b5fd4;
+  }
+  .benefits { display: flex; gap: 5mm; justify-content: center; }
+  .ben { flex: 1; }
+  .ben .ic {
+    width: 11.5mm; height: 11.5mm; margin: 0 auto 2mm; border-radius: 50%;
+    background: #e8f0fc; display: flex; align-items: center; justify-content: center; font-size: 13pt;
+  }
+  .ben .tx { font-size: 7pt; line-height: 1.35; color: #2a4a7a; }
+
+  /* bloco do QR */
+  .qrbox {
+    margin: 5.5mm auto 0; background: #0d2f6b; color: #fff;
+    border-radius: 7mm; padding: 5mm 5mm 4.5mm; width: 100mm;
+  }
+  .qrbox .cta { font-size: 11pt; font-weight: 900; letter-spacing: .8px; margin-bottom: 3.5mm; }
+  .qrframe { background: #fff; border-radius: 5mm; padding: 3mm; display: inline-block; line-height: 0; }
+  .qrframe svg { width: 55mm; height: 55mm; display: block; }
+  .qrhint { margin-top: 3mm; font-size: 7.5pt; opacity: .85; }
+  .qrloc { margin-top: 2mm; font-size: 10.5pt; font-weight: 800; }
+
+  /* rodapé */
+  .closing {
+    margin-top: 5mm; font-size: 15pt; font-weight: 900;
+    line-height: 1.12; color: #0d2f6b;
+  }
+  .closing span { color: #0b5fd4; }
+  .pills {
+    margin-top: 4mm; padding: 3mm 0 4mm; border-top: .6mm solid #dce7f7;
+    display: flex; justify-content: center; gap: 8mm;
+    font-size: 7pt; font-weight: 800; letter-spacing: 1px; color: #7f9dc4;
+  }
+</style></head><body>
+<div class="sheet">
+  <div class="wave w1"></div>
+  <div class="wave w2"></div>
+
+  <div class="top">
+    <div class="brand">
+      ${logo ? `<img src="${esc(logo)}" alt="">` : `LACTALIS<small>BRASIL</small>`}
+    </div>
+
+    <div class="title">
+      <div class="l1">VOZ</div>
+      <div class="l2"><em>DA</em>OPERAÇÃO</div>
+    </div>
+
+    <div class="tagline">A sua voz transforma &nbsp;·&nbsp; A nossa operação evolui</div>
+
+    <div class="bubble">${p.call}</div>
+  </div>
+
+  <div class="body">
+    <div class="intro">
+      O <b>Voz da Operação</b> é o canal que conecta você às mudanças
+      que fazem a diferença todos os dias.
+    </div>
+
+    <div class="sec-label">QUANDO VOCÊ FALA, A GENTE AVANÇA</div>
+    <div class="benefits">
+      ${BENEFITS.map(b => `<div class="ben"><div class="ic">${b.i}</div><div class="tx">${b.t}</div></div>`).join('')}
+    </div>
+
+    <div class="qrbox">
+      <div class="cta">${p.cta}</div>
+      <div class="qrframe">${svg}</div>
+      <div class="qrhint">Aponte a câmera do seu celular para o código</div>
+      <div class="qrloc">${esc(q.cd)}${q.sector ? ' · ' + esc(q.sector) : ''}</div>
+    </div>
+
+    <div class="closing">SUA VOZ, <span>NOSSA FORÇA</span>,<br>GRANDES RESULTADOS!</div>
+
+    <div class="pills">
+      <span>SEGURANÇA</span><span>COLABORAÇÃO</span><span>AGILIDADE</span><span>RESULTADOS</span>
+    </div>
+  </div>
+</div>
+<script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script>
+</body></html>`);
   w.document.close();
+}
+
+/* ══════════ CARTAZ PERSONALIZADO ══════════ */
+/* A arte é reduzida no navegador antes de virar base64, para não
+   pesar no banco. A posição do QR é guardada em porcentagem, então
+   funciona igual em qualquer resolução de impressão. */
+
+const FLYER_MAX_W = 1600;   // px — largura máxima salva
+const FLYER_DEF   = { x: 50, y: 72, size: 22, box: true };
+
+function flyerCfg() {
+  const c = M.settings.flyer_config;
+  const obj = (typeof c === 'string') ? (JSON.parse(c || '{}')) : (c || {});
+  return Object.assign({}, FLYER_DEF, obj);
+}
+
+function onFlyerUpload(ev) {
+  const file = ev.target.files[0];
+  ev.target.value = '';
+  if (!file) return;
+  if (!/^image\//.test(file.type)) { toast('Envie um arquivo de imagem (JPG ou PNG).', 'orange'); return; }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = async () => {
+      const scale = Math.min(1, FLYER_MAX_W / img.naturalWidth);
+      const cv = document.createElement('canvas');
+      cv.width  = Math.round(img.naturalWidth  * scale);
+      cv.height = Math.round(img.naturalHeight * scale);
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.drawImage(img, 0, 0, cv.width, cv.height);
+
+      // JPEG comprime bem fotos; PNG preserva arte chapada com transparência
+      const isPng = /png/i.test(file.type);
+      const data = isPng ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.85);
+
+      const kb = Math.round(data.length * 0.75 / 1024);
+      if (kb > 3000) { toast('Arte muito pesada (' + kb + ' KB). Reduza a resolução e tente de novo.', 'orange'); return; }
+
+      M.settings.flyer_image = data;
+      if (!M.settings.flyer_config || !Object.keys(flyerCfg()).length) M.settings.flyer_config = FLYER_DEF;
+      try {
+        await DB.update('app_settings', 'app', { flyer_image: data });
+      } catch (e) {
+        toast('Rode o 08-flyer.sql no Supabase para salvar a arte.', 'orange');
+      }
+      renderFlyerEditor();
+      renderQrList();
+      toast('Arte enviada (' + kb + ' KB). Agora posicione o QR.', 'green');
+    };
+    img.onerror = () => toast('Não foi possível ler a imagem.', 'red');
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeFlyer() {
+  confirmAction('Remover arte', 'O cartaz personalizado será apagado e os QR Codes voltam a usar o cartaz padrão do sistema.', async () => {
+    M.settings.flyer_image = '';
+    try { await DB.update('app_settings', 'app', { flyer_image: '' }); } catch (e) {}
+    renderFlyerEditor(); renderQrList();
+    toast('Arte removida.', 'orange');
+  });
+}
+
+function renderFlyerEditor() {
+  const has = !!(M.settings.flyer_image);
+  $('flyer-empty').classList.toggle('hidden', has);
+  $('flyer-editor').classList.toggle('hidden', !has);
+  $('flyer-remove').classList.toggle('hidden', !has);
+  if (!has) return;
+
+  const cfg = flyerCfg();
+  $('flyer-img').src = M.settings.flyer_image;
+  $('flyer-size').value = cfg.size;
+  $('flyer-size-val').textContent = cfg.size;
+  $('flyer-box').checked = cfg.box !== false;
+
+  const list = M.qr_codes.filter(q => scopeCds().includes(q.cd));
+  fillSelect('flyer-preview-qr', list.length
+    ? list.map(q => ({ value: q.id, label: q.label + ' — ' + q.cd }))
+    : [{ value: '', label: 'Crie um QR Code primeiro' }]);
+
+  updateFlyerQr();
+  enableFlyerDrag();
+}
+
+function updateFlyerQr() {
+  const cfg = flyerCfg();
+  const size = +$('flyer-size').value;
+  const box  = $('flyer-box').checked;
+  $('flyer-size-val').textContent = size;
+
+  const el = $('flyer-qr');
+  el.style.width = size + '%';
+  el.style.left  = cfg.x + '%';
+  el.style.top   = cfg.y + '%';
+  el.style.transform = 'translate(-50%, -50%)';
+  el.classList.toggle('boxed', box);
+
+  const qid = $('flyer-preview-qr').value;
+  const q = byId(M.qr_codes, qid);
+  const url = q ? qrUrlFor(q) : (baseUrl() || 'https://exemplo.com');
+  try {
+    el.innerHTML = QRCode.toSVG(url, { size: 400, dark: '#0a2a6b' });
+  } catch (e) { el.innerHTML = ''; }
+
+  // mantém proporção quadrada
+  requestAnimationFrame(() => { el.style.height = el.offsetWidth + 'px'; });
+}
+
+function enableFlyerDrag() {
+  const stage = $('flyer-stage'), el = $('flyer-qr');
+  if (el._dragReady) return;
+  el._dragReady = true;
+
+  const move = (clientX, clientY) => {
+    const r = stage.getBoundingClientRect();
+    let x = ((clientX - r.left) / r.width) * 100;
+    let y = ((clientY - r.top) / r.height) * 100;
+    x = Math.max(6, Math.min(94, x));
+    y = Math.max(6, Math.min(94, y));
+    el.style.left = x + '%';
+    el.style.top  = y + '%';
+    const cfg = flyerCfg();
+    M.settings.flyer_config = { x: +x.toFixed(1), y: +y.toFixed(1), size: cfg.size, box: cfg.box };
+  };
+
+  const start = e => {
+    e.preventDefault();
+    el.classList.add('dragging');
+    const onMove = ev => {
+      const t = ev.touches ? ev.touches[0] : ev;
+      move(t.clientX, t.clientY);
+    };
+    const onUp = () => {
+      el.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
+  };
+  el.addEventListener('mousedown', start);
+  el.addEventListener('touchstart', start, { passive: false });
+}
+
+async function saveFlyer() {
+  const cur = flyerCfg();
+  const cfg = {
+    x: cur.x, y: cur.y,
+    size: +$('flyer-size').value,
+    box: $('flyer-box').checked,
+  };
+  M.settings.flyer_config = cfg;
+  try {
+    await DB.update('app_settings', 'app', { flyer_config: cfg });
+    toast('Posição salva! Todos os cartazes usam esta configuração.', 'green');
+  } catch (e) {
+    toast('Rode o 08-flyer.sql no Supabase para salvar.', 'orange');
+  }
+  renderQrList();
+}
+
+/* ---- Composição final: arte + QR ---- */
+function composeFlyer(qrId) {
+  return new Promise((resolve, reject) => {
+    const q = byId(M.qr_codes, qrId);
+    if (!q || !M.settings.flyer_image) return reject(new Error('Sem arte definida.'));
+    const cfg = flyerCfg();
+
+    const art = new Image();
+    art.onload = () => {
+      const cv = document.createElement('canvas');
+      cv.width = art.naturalWidth; cv.height = art.naturalHeight;
+      const ctx = cv.getContext('2d');
+      ctx.drawImage(art, 0, 0);
+
+      const qrPx = Math.round(cv.width * (cfg.size / 100));
+      const cx   = cv.width  * (cfg.x / 100);
+      const cy   = cv.height * (cfg.y / 100);
+      const pad  = cfg.box !== false ? Math.round(qrPx * 0.055) : 0;
+      const boxPx = qrPx + pad * 2;
+      const bx = Math.round(cx - boxPx / 2);
+      const by = Math.round(cy - boxPx / 2);
+
+      if (cfg.box !== false) {
+        const r = Math.round(boxPx * 0.06);
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,.28)';
+        ctx.shadowBlur = Math.round(boxPx * 0.05);
+        ctx.shadowOffsetY = Math.round(boxPx * 0.015);
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(bx, by, boxPx, boxPx, r);
+        else ctx.rect(bx, by, boxPx, boxPx);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      const qrCv = QRCode.toCanvas(qrUrlFor(q), { size: qrPx * 2, margin: 1, dark: '#0a2a6b' });
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(qrCv, bx + pad, by + pad, qrPx, qrPx);
+
+      resolve(cv);
+    };
+    art.onerror = () => reject(new Error('Não foi possível carregar a arte.'));
+    art.src = M.settings.flyer_image;
+  });
+}
+
+async function downloadFlyer(qrId) {
+  try {
+    const cv = await composeFlyer(qrId);
+    const q = byId(M.qr_codes, qrId);
+    const a = document.createElement('a');
+    a.href = cv.toDataURL('image/png');
+    a.download = 'cartaz-' + q.label.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.png';
+    a.click();
+    toast('Cartaz baixado!', 'green');
+  } catch (e) { toast(e.message, 'red'); }
+}
+
+async function printFlyer(qrId) {
+  try {
+    const cv = await composeFlyer(qrId);
+    const q = byId(M.qr_codes, qrId);
+    const img = cv.toDataURL('image/png');
+    const vertical = cv.height >= cv.width;
+    const w = window.open('', '_blank');
+    w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+      <title>${esc(q.label)}</title><style>
+      @page { size: A4 ${vertical ? 'portrait' : 'landscape'}; margin: 0; }
+      *{margin:0;padding:0;box-sizing:border-box}
+      html,body{width:100%;height:100%}
+      body{display:flex;align-items:center;justify-content:center;background:#fff}
+      img{max-width:100%;max-height:100%;display:block}
+      </style></head><body><img src="${img}">
+      <script>window.onload=()=>setTimeout(()=>window.print(),600)<\/script>
+      </body></html>`);
+    w.document.close();
+  } catch (e) { toast(e.message, 'red'); }
 }
 
 /* ══════════ CONFIGURAÇÕES ══════════ */
