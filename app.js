@@ -2251,28 +2251,28 @@ async function submitUser() {
   }
   try {
     if (S._editUser) {
-      const orig0 = byId(M.profiles, S._editUser);
-      const patch = { name, role, cd, email };
+      const orig = byId(M.profiles, S._editUser);
+      const emailMudou = orig && String(orig.email || '').toLowerCase() !== mail;
+      const patch = { name, matricula: mat, role, cd, email: mail };
+
       if (DB.online) {
-        // A matrícula é o login: trocar exige atualizar também o Auth.
-        if (orig0 && orig0.matricula !== mat) {
-          await DB.rpc('set_staff_matricula', { p_profile: S._editUser, p_matricula: mat });
+        // O login é o e-mail: trocá-lo exige atualizar também o Auth.
+        if (emailMudou) {
+          await DB.rpc('set_staff_email', { p_profile: S._editUser, p_email: mail });
         }
-        await DB.update('profiles', S._editUser, patch);
-        const orig = byId(M.profiles, S._editUser);
         if (pass) {
           await DB.rpc('set_staff_password', { p_profile: S._editUser, p_password: pass });
         }
-        Object.assign(orig, patch, { matricula: mat });
-        if (S.user && S.user.id === S._editUser) Object.assign(S.user, patch, { matricula: mat });
+        // matrícula, nome, nível e CD são campos comuns do perfil
+        await DB.update('profiles', S._editUser, { name, matricula: mat, role, cd });
       } else {
-        patch.matricula = mat;
         if (pass) patch.password = pass;
         await DB.update('profiles', S._editUser, patch);
-        Object.assign(byId(M.profiles, S._editUser), patch);
       }
-      toast('Gestor atualizado!' + (orig0 && orig0.matricula !== mat
-        ? ' O novo login é a matrícula ' + mat + '.' : ''), 'green');
+
+      Object.assign(orig, patch);
+      if (S.user && S.user.id === S._editUser) Object.assign(S.user, patch);
+      toast('Gestor atualizado!' + (emailMudou ? ' O novo login é ' + mail + '.' : ''), 'green');
     } else {
       if (DB.online) {
         await DB.rpc('create_staff', {
