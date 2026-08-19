@@ -46,8 +46,8 @@ const DB = (function () {
     ];
     return {
       profiles: [
-        { id: 'u0', matricula: 'admin', name: 'Administrador',     password: 'lactalis2025', role: 'admin',       cd: 'TODOS',       email: 'admin@br.lactalis.com',      active: true },
-        { id: 'u1', matricula: '10001', name: 'Julio César',       password: 'muda@2025',    role: 'gerente',     cd: 'TODOS',       email: 'julio.woellner@br.lactalis.com',      active: true },
+        { id: 'u0', matricula: 'admin', name: 'Administrador',     password: 'lactalis2025', role: 'admin',       cd: 'Regional',    email: 'admin@br.lactalis.com',      active: true },
+        { id: 'u1', matricula: '10001', name: 'Julio César',       password: 'muda@2025',    role: 'gerente',     cd: 'Regional',    email: 'julio.woellner@br.lactalis.com',      active: true },
         { id: 'u2', matricula: '10002', name: 'Anderson Rafael',   password: 'muda@2025',    role: 'coordenador', cd: 'CD Carambeí', email: 'anderson.moreira@br.lactalis.com',   active: true },
         { id: 'u3', matricula: '10003', name: 'Alexsander Hortiz', password: 'muda@2025',    role: 'coordenador', cd: 'CD Carambeí', email: 'alexsander.hortiz@br.lactalis.com', active: true },
         { id: 'u4', matricula: '10004', name: 'William Moreira',   password: 'muda@2025',    role: 'coordenador', cd: 'CD Londrina', email: 'william.moreira@br.lactalis.com',    active: true },

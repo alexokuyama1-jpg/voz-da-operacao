@@ -7,6 +7,8 @@
 /* ══════════ CONSTANTES ══════════ */
 const H = 3600000, DAY = 86400000;
 const CDS = ['CD Carambeí', 'CD Curitiba', 'CD Londrina'];
+const REGIONAL = 'Regional';               // abrange todos os CDs
+const CD_OPTIONS = [REGIONAL, ...CDS];     // usado nos cadastros
 const CRIT = {
   baixa: { label: 'Baixa', hours: 48, icon: '🟢', badge: 'badge-green',  color: 'var(--green)' },
   media: { label: 'Média', hours: 72, icon: '🟡', badge: 'badge-orange', color: 'var(--orange)' },
@@ -15,7 +17,7 @@ const CRIT = {
 const SCALE = ['Excelente', 'Bom', 'Regular', 'Ruim', 'Péssimo'];
 const SCALE_VAL = [5, 4, 3, 2, 1];
 const ROLE_LABEL = { gerente: 'Gerente', coordenador: 'Coordenador', supervisor: 'Supervisor', admin: 'Administrador' };
-const SHIFTS = ['1º Turno', '2º Turno', '3º Turno'];
+const SHIFTS = ['1º Turno', '2º Turno', '3º Turno', 'Intermediário', 'Adm'];
 
 /* ══════════ CACHE EM MEMÓRIA ══════════ */
 const M = {
@@ -30,7 +32,7 @@ const M = {
 const S = {
   page: 'home',
   cd: CDS[0],
-  dashCd: 'TODOS',
+  dashCd: REGIONAL,
   pontosCd: null,
   user: null,
   filter: 'todos',
@@ -43,7 +45,7 @@ const S = {
   vEmp: null, vCand: null, vElection: null,
   // pendências de modal
   conn: { online: false, error: null },
-  _tratarId: null, _exclId: null, _cancelVoteId: null,
+  _tratarId: null, _exclId: null, _cancelVoteId: null, _reassignId: null, _delOccId: null,
   _editUser: null, _editEmp: null,
   // rascunhos de edição
   draftLogThemes: null, draftSurvThemes: null,
@@ -184,11 +186,11 @@ function electedOf(cd) {
 }
 function scopeCds() {
   if (!S.user) return CDS;
-  if (S.user.cd === 'TODOS' || S.user.role === 'admin' || S.user.role === 'gerente') return CDS;
+  if (S.user.cd === REGIONAL || S.user.cd === 'TODOS' || S.user.role === 'admin' || S.user.role === 'gerente') return CDS;
   return [S.user.cd];
 }
 function dashCds() {
-  return S.dashCd === 'TODOS' ? scopeCds() : [S.dashCd];
+  return (S.dashCd === REGIONAL || S.dashCd === 'TODOS') ? scopeCds() : [S.dashCd];
 }
 function visibleOccurrences() {
   let list = M.occurrences.filter(o => dashCds().includes(o.cd));
@@ -508,7 +510,7 @@ async function submitPonto() {
 }
 
 function notifyStub(evt, occ) {
-  const dest = M.notify_emails.filter(e => e[evt] && (e.cd === occ.cd || e.cd === 'TODOS'));
+  const dest = M.notify_emails.filter(e => e[evt] && (e.cd === occ.cd || e.cd === REGIONAL || e.cd === 'TODOS'));
   if (dest.length) console.log('[NOTIFICAÇÃO]', evt, '→', dest.map(d => d.address).join(', '), '|', occ.title);
 }
 
@@ -810,7 +812,8 @@ function renderOccList() {
           <div class="occ-icon">${t.icon}</div>
           <div class="occ-body">
             <div class="occ-theme-label"><span>${esc(t.label)}</span>
-              <span class="badge ${c.badge}">${c.icon} ${c.label} · ${c.hours}h</span></div>
+              <span class="badge ${c.badge}">${c.icon} ${c.label} · ${c.hours}h</span>
+              ${o.reassigned_at ? `<span class="badge badge-purple" title="${esc(o.reassign_reason || '')}">🔄 Transferido</span>` : ''}</div>
             <div class="occ-title">${esc(o.title)}</div>
             <div class="occ-desc">${esc(o.description)}</div>
             <div class="occ-meta">
@@ -827,6 +830,10 @@ function renderOccList() {
             ? (canTreat(o) ? `<button class="btn-tratar" onclick="openTratar('${o.id}')">✓ Tratar</button>`
                            : `<span class="badge badge-gray">Aguardando</span>`)
             : `<span class="badge badge-green">✓ Concluído</span>`}
+          ${isAdmin() ? `<div class="admin-acts">
+            ${o.status === 'open' ? `<button class="btn-icon" title="Trocar responsável" onclick="openReassign('${o.id}')">🔄</button>` : ''}
+            <button class="btn-icon del" title="Excluir ponto" onclick="openDeleteOcc('${o.id}')">🗑</button>
+          </div>` : ''}
         </div>
       </div>
       ${note ? `<div class="occ-resolution"><strong>Devolutiva:</strong> ${esc(o.resolution_note)}
@@ -872,6 +879,87 @@ async function confirmTratar() {
   if (S.user) renderDash();
   toast('Ponto tratado e devolutiva registrada!', 'green');
 }
+/* ---- Trocar responsável (somente admin) ---- */
+function supervisorOptions(excludeId) {
+  return M.profiles
+    .filter(u => (u.role === 'supervisor' || u.role === 'admin') && u.active !== false && u.id !== excludeId)
+    .map(u => ({ value: u.id, label: `${u.name} — ${ROLE_LABEL[u.role]} · ${u.cd}` }));
+}
+
+function openReassign(id) {
+  const o = byId(M.occurrences, id); if (!o) return;
+  S._reassignId = id;
+  const t = byId(M.log_themes, o.theme_id) || { icon: '📋', label: '—' };
+  const atual = byId(M.profiles, o.supervisor_id);
+  $('ra-preview').innerHTML = `<div class="cb-label">${esc(t.label)}</div>
+    <div style="font-weight:700;color:var(--blue);margin:3px 0">${esc(o.title)}</div>
+    <div style="font-size:.85rem;color:var(--text2)">Responsável atual: <strong>${esc(atual ? atual.name : 'não definido')}</strong></div>`;
+  const opts = supervisorOptions(o.supervisor_id);
+  if (!opts.length) { toast('Não há outro supervisor disponível para receber o ponto.', 'orange'); return; }
+  fillSelect('ra-supervisor', opts);
+  $('ra-reason').value = ''; $('ra-char').textContent = '0 / 200'; $('ra-btn').disabled = true;
+  openModal('modal-reassign');
+  setTimeout(() => $('ra-reason').focus(), 100);
+}
+
+function validateReassign() {
+  const v = $('ra-reason').value;
+  $('ra-char').textContent = v.length + ' / 200';
+  $('ra-char').className = 'char-hint ' + (v.trim().length < 5 ? 'warn' : 'ok');
+  $('ra-btn').disabled = v.trim().length < 5 || !$('ra-supervisor').value;
+}
+
+async function confirmReassign() {
+  const novo = $('ra-supervisor').value;
+  const motivo = $('ra-reason').value.trim();
+  if (!novo || motivo.length < 5) return;
+  const o = byId(M.occurrences, S._reassignId);
+  try {
+    if (DB.online) {
+      await DB.rpc('reassign_occurrence', {
+        p_occurrence: S._reassignId, p_supervisor: novo, p_reason: motivo,
+      });
+      M.occurrences = await DB.select('occurrences');
+    } else {
+      const patch = {
+        reassigned_from: o.supervisor_id, supervisor_id: novo,
+        reassigned_by: S.user.name, reassigned_at: Date.now(), reassign_reason: motivo,
+      };
+      await DB.update('occurrences', S._reassignId, patch);
+      Object.assign(o, patch);
+    }
+  } catch (e) { toast(e.message, 'red'); return; }
+  const p = byId(M.profiles, novo);
+  closeModal('modal-reassign'); renderPontos(); renderDash(); refreshBanner();
+  toast('Ponto transferido para ' + (p ? p.name : 'novo responsável') + '.', 'green');
+}
+
+/* ---- Excluir ponto (somente admin) ---- */
+function openDeleteOcc(id) {
+  const o = byId(M.occurrences, id); if (!o) return;
+  S._delOccId = id;
+  const t = byId(M.log_themes, o.theme_id) || { icon: '📋', label: '—' };
+  $('do-preview').innerHTML = `<div class="cb-label">${esc(t.label)} · ${fmtDate(o.created_at)}</div>
+    <div style="font-weight:700;color:var(--blue);margin:3px 0">${esc(o.title)}</div>
+    <div style="font-size:.85rem;color:var(--text2)">${esc(o.description)}</div>
+    <div style="font-size:11.5px;color:var(--text3);margin-top:5px">Registrado por ${esc(o.author_name)} (${esc(o.author_matricula)})</div>`;
+  $('do-reason').value = ''; $('do-char').textContent = '0 / 200'; $('do-btn').disabled = true;
+  openModal('modal-del-occ');
+  setTimeout(() => $('do-reason').focus(), 100);
+}
+
+async function confirmDeleteOcc() {
+  const motivo = $('do-reason').value.trim();
+  if (motivo.length < 5) return;
+  try {
+    if (DB.online) await DB.rpc('delete_occurrence', { p_occurrence: S._delOccId, p_reason: motivo });
+    else await DB.remove('occurrences', S._delOccId);
+  } catch (e) { toast(e.message, 'red'); return; }
+  M.occurrences = M.occurrences.filter(o => o.id !== S._delOccId);
+  closeModal('modal-del-occ'); renderPontos(); renderDash(); refreshBanner();
+  toast('Ponto excluído.', 'orange');
+}
+
 function refreshBanner() {
   const l = S.user ? visibleOccurrences() : M.occurrences.filter(o => o.cd === S.cd);
   const exp = l.filter(o => o.status === 'open' && remaining(o) <= 0).length;
@@ -895,7 +983,7 @@ async function doLogin() {
   try {
     const u = await DB.signIn(m, p);
     S.user = u;
-    S.dashCd = u.cd === 'TODOS' ? 'TODOS' : u.cd;
+    S.dashCd = (u.cd === REGIONAL || u.cd === 'TODOS') ? REGIONAL : u.cd;
     err.classList.add('hidden');
     $('l-user').value = ''; $('l-pass').value = '';
     await loadAll();
@@ -939,8 +1027,10 @@ function buildDashTabs() {
     `<button class="dash-tab ${i === 0 ? 'active' : ''}" onclick="showDashTab('${t.id}',this)">${t.label}</button>`).join('');
   document.querySelectorAll('.dash-panel').forEach(p => p.classList.remove('active'));
   if (tabs.length) $('dtab-' + tabs[0].id).classList.add('active');
-  const cds = S.user.cd === 'TODOS' || S.user.role === 'admin' || S.user.role === 'gerente'
-    ? [{ value: 'TODOS', label: 'Todos os CDs' }, ...CDS.map(c => ({ value: c, label: c }))]
+  const veTudo = S.user.cd === REGIONAL || S.user.cd === 'TODOS'
+              || S.user.role === 'admin' || S.user.role === 'gerente';
+  const cds = veTudo
+    ? [{ value: REGIONAL, label: '🌎 Regional — todos os CDs' }, ...CDS.map(c => ({ value: c, label: c }))]
     : [{ value: S.user.cd, label: S.user.cd }];
   fillSelect('dash-cd', cds, S.dashCd);
 }
@@ -1346,7 +1436,7 @@ async function confirmCancelVote() {
 
 /* ══════════ ELEIÇÕES ══════════ */
 function renderElections() {
-  const cd = S.dashCd === 'TODOS' ? scopeCds()[0] : S.dashCd;
+  const cd = (S.dashCd === REGIONAL || S.dashCd === 'TODOS') ? scopeCds()[0] : S.dashCd;
   const el = openElection(cd);
   const admin = isAdmin();
   $('election-actions').innerHTML = !admin ? '' : (el
@@ -1431,7 +1521,7 @@ function closeElection(id) {
   });
 }
 function openCandModal() {
-  const cd = S.dashCd === 'TODOS' ? scopeCds()[0] : S.dashCd;
+  const cd = (S.dashCd === REGIONAL || S.dashCd === 'TODOS') ? scopeCds()[0] : S.dashCd;
   const el = openElection(cd); if (!el) return;
   const taken = candidatesOf(el.id).map(c => c.matricula);
   const opts = M.employees.filter(e => e.cd === cd && e.active !== false && !taken.includes(e.matricula))
@@ -1441,7 +1531,7 @@ function openCandModal() {
   openModal('modal-candidate');
 }
 async function submitCandidate() {
-  const cd = S.dashCd === 'TODOS' ? scopeCds()[0] : S.dashCd;
+  const cd = (S.dashCd === REGIONAL || S.dashCd === 'TODOS') ? scopeCds()[0] : S.dashCd;
   const el = openElection(cd); if (!el) return;
   const emp = byId(M.employees, $('cand-employee').value); if (!emp) return;
   const rec = await DB.insert('candidates', {
@@ -1492,7 +1582,7 @@ async function confirmExclude() {
 
 /* ══════════ RODADAS DE PESQUISA ══════════ */
 function renderRounds() {
-  const cd = S.dashCd === 'TODOS' ? scopeCds()[0] : S.dashCd;
+  const cd = (S.dashCd === REGIONAL || S.dashCd === 'TODOS') ? scopeCds()[0] : S.dashCd;
   const rd = openRound(cd);
   const admin = isAdmin();
   $('round-actions').innerHTML = !admin ? '' : (rd
@@ -2076,7 +2166,7 @@ function openUserModal(id) {
   const u = id ? byId(M.profiles, id) : null;
   $('modal-user-title').innerHTML = (u ? '✏️ Editar Gestor' : '👤 Novo Gestor') +
     ' <button class="modal-close" onclick="closeModal(\'modal-user\')">✕</button>';
-  fillSelect('usr-cd', [{ value: 'TODOS', label: 'Todos os CDs' }, ...CDS.map(c => ({ value: c, label: c }))], u ? u.cd : CDS[0]);
+  fillSelect('usr-cd', [{ value: REGIONAL, label: '🌎 Regional — todos os CDs' }, ...CDS.map(c => ({ value: c, label: c }))], u ? u.cd : CDS[0]);
   $('usr-name').value = u ? u.name : '';
   $('usr-matricula').value = u ? u.matricula : '';
   $('usr-pass').value = u ? (DB.online ? '' : (u.password || '')) : '';
@@ -2352,7 +2442,7 @@ async function submitImport() {
 
 /* -- e-mails -- */
 function renderCfgEmails() {
-  const list = M.notify_emails.filter(e => scopeCds().includes(e.cd) || e.cd === 'TODOS');
+  const list = M.notify_emails.filter(e => scopeCds().includes(e.cd) || e.cd === REGIONAL || e.cd === 'TODOS');
   $('cfg-emails-list').innerHTML = list.length ? list.map(e => `
     <div class="email-row">
       <div class="email-info"><div class="email-addr">${esc(e.address)}</div>
@@ -2366,7 +2456,7 @@ function renderCfgEmails() {
     </div>`).join('') : noData('Nenhum destinatário cadastrado.');
 }
 function openEmailModal() {
-  fillSelect('eml-cd', [{ value: 'TODOS', label: 'Todos os CDs' }, ...scopeCds().map(c => ({ value: c, label: c }))]);
+  fillSelect('eml-cd', [{ value: REGIONAL, label: '🌎 Regional — todos os CDs' }, ...scopeCds().map(c => ({ value: c, label: c }))]);
   $('eml-name').value = ''; $('eml-addr').value = '';
   ['eml-new', 'eml-warn', 'eml-exp'].forEach(i => $(i).checked = true);
   openModal('modal-email');
@@ -2553,100 +2643,292 @@ function exportCSV() {
   toast('CSV exportado!', 'green');
 }
 
+/* ══════════ RELATÓRIOS EM PDF ══════════ */
+/* Gera o relatório da aba que estiver aberta no momento. */
+
+function activeDashTab() {
+  const el = document.querySelector('.dash-panel.active');
+  return el ? el.id.replace('dtab-', '') : 'logistica';
+}
+
+function pdfShell(titulo, subtitulo, corpo, paisagem) {
+  const cdLabel = (S.dashCd === REGIONAL || S.dashCd === 'TODOS') ? 'Regional — todos os CDs' : S.dashCd;
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+    <title>${esc(titulo)} — Voz da Operação</title><style>
+    @page{size:A4 ${paisagem ? 'landscape' : 'portrait'};margin:12mm}
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body{font-family:'Segoe UI',Arial,sans-serif;color:#0d1f38;font-size:11px;padding:4mm}
+    .hd{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #04336b;padding-bottom:9px;margin-bottom:14px}
+    h1{font-size:20px;color:#04336b}
+    .sub{font-size:12px;color:#3a5572;margin-top:2px}
+    .meta{font-size:10px;color:#7a93b0;text-align:right;line-height:1.5}
+    h2{font-size:13px;color:#04336b;margin:15px 0 7px;padding-bottom:4px;border-bottom:1.5px solid #cddaee}
+    .kpis{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+    .kpi{border:1.5px solid #cddaee;border-radius:8px;padding:9px 14px;min-width:100px}
+    .kpi .v{font-size:19px;font-weight:800;color:#0f5bbf;line-height:1}
+    .kpi .l{font-size:9.5px;color:#7a93b0;margin-top:3px}
+    .kpi.red .v{color:#c01c1c}.kpi.green .v{color:#0e7a45}.kpi.orange .v{color:#c47800}
+    table{width:100%;border-collapse:collapse;margin-top:6px}
+    th{background:#e8f2fd;color:#04336b;font-size:9px;text-transform:uppercase;letter-spacing:.4px;padding:6px;text-align:left;border-bottom:1.5px solid #cddaee}
+    td{padding:6px;border-bottom:1px solid #e4ecf7;vertical-align:top;font-size:10px}
+    .dim{color:#7a93b0;font-size:9px}
+    .r-exp{background:#fdeaea}.r-ok{background:#f4fcf8}.r-warn{background:#fff8e8}
+    .two{display:flex;gap:16px}.two>div{flex:1}
+    .bar{height:7px;background:#e4ecf7;border-radius:4px;overflow:hidden;min-width:60px}
+    .bar>i{display:block;height:100%;background:#0f5bbf;border-radius:4px}
+    .tagx{display:inline-block;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700}
+    .t-ok{background:#e6f5ee;color:#0e7a45}.t-no{background:#fdeaea;color:#c01c1c}
+    .t-md{background:#fff3da;color:#c47800}
+    .foot{margin-top:16px;padding-top:8px;border-top:1.5px solid #cddaee;font-size:9px;color:#7a93b0;text-align:center}
+    </style></head><body>
+    <div class="hd"><div><h1>🎙️ ${esc(titulo)}</h1>
+      <div class="sub">Voz da Operação · ${esc(cdLabel)}</div></div>
+      <div class="meta">${esc(subtitulo)}<br>Emitido em ${new Date().toLocaleString('pt-BR')}<br>
+      Por ${esc(S.user.name)} · ${ROLE_LABEL[S.user.role]}</div></div>
+    ${corpo}
+    <div class="foot">Voz da Operação · Lactalis Brasil — documento gerado automaticamente</div>
+    <script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script>
+    </body></html>`);
+  w.document.close();
+  toast('Use "Salvar como PDF" na janela de impressão.', 'blue');
+}
+
 function exportPDF() {
+  const tab = activeDashTab();
+  const fn = {
+    logistica:    pdfLogistica,
+    participacao: pdfParticipacao,
+    pesquisa:     pdfPesquisa,
+    votos:        pdfVotacao,
+    eleicoes:     pdfEleicoes,
+    rodadas:      pdfRodadas,
+  }[tab];
+  if (!fn) { toast('Esta aba não gera relatório em PDF.', 'orange'); return; }
+  fn();
+}
+
+/* ---- Logística ---- */
+function pdfLogistica() {
   const l = visibleOccurrences();
-  const cdLabel = S.dashCd === 'TODOS' ? 'Todos os CDs' : S.dashCd;
   const total = l.length, done = l.filter(o => o.status === 'done').length;
   const open = l.filter(o => o.status === 'open').length;
   const exp = l.filter(o => o.status === 'open' && remaining(o) <= 0).length;
+  const onTime = l.filter(o => o.status === 'done' && o.resolved_at - o.created_at <= o.sla_hours * H).length;
 
   const ids = uniq(l.map(o => o.theme_id));
   const stats = ids.map(id => {
-    const t = byId(M.log_themes, id) || { icon: '', label: '—' };
+    const t = byId(M.log_themes, id) || { label: '—' };
     const all = l.filter(o => o.theme_id === id);
     const d = all.filter(o => o.status === 'done').length;
     return { label: t.label, total: all.length, done: d, pct: all.length ? Math.round(d / all.length * 100) : 0 };
   }).sort((a, b) => b.total - a.total);
 
-  const cds = dashCds();
-  const res = M.survey_responses.filter(r => cds.includes(r.cd));
-  const ver = currentVersion();
-  const sStats = surveyStatsFor(res, ver ? ver.themes : []);
+  const sups = M.profiles.filter(u => u.role === 'supervisor').map(u => {
+    const all = l.filter(o => o.supervisor_id === u.id);
+    const d = all.filter(o => o.status === 'done').length;
+    const e = all.filter(o => o.status === 'open' && remaining(o) <= 0).length;
+    return { name: u.name, total: all.length, done: d, expired: e, pct: all.length ? Math.round(d / all.length * 100) : 0 };
+  }).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
 
-  const rowsHtml = l.sort((a, b) => b.created_at - a.created_at).slice(0, 120).map(o => {
+  const linhas = l.sort((a, b) => b.created_at - a.created_at).slice(0, 120).map(o => {
     const t = byId(M.log_themes, o.theme_id) || { label: '—' };
     const c = CRIT[o.criticality] || {};
-    const s = byId(M.profiles, o.supervisor_id);
+    const sp = byId(M.profiles, o.supervisor_id);
     const st = o.status === 'done' ? 'Tratado' : (remaining(o) <= 0 ? 'VENCIDO' : 'Em aberto');
     return `<tr class="${st === 'VENCIDO' ? 'r-exp' : st === 'Tratado' ? 'r-ok' : ''}">
       <td>${esc(o.cd.replace('CD ', ''))}</td><td>${esc(t.label)}</td>
       <td><strong>${esc(o.title)}</strong><br><span class="dim">${esc(o.description)}</span></td>
       <td>${c.label || ''}<br><span class="dim">${o.sla_hours}h</span></td>
-      <td>${esc(s ? s.name : '—')}</td>
+      <td>${esc(sp ? sp.name : '—')}${o.reassigned_at ? '<br><span class="dim">🔄 transferido</span>' : ''}</td>
       <td>${esc(o.author_name)}<br><span class="dim">${esc(o.author_matricula)}</span></td>
       <td>${fmtDate(o.created_at)}</td><td><strong>${st}</strong></td></tr>`;
   }).join('');
 
-  const w = window.open('', '_blank');
-  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
-    <title>Relatório — Voz da Operação</title><style>
-    @page{size:A4 landscape;margin:12mm}
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Segoe UI',Arial,sans-serif;color:#0d1f38;font-size:11px;padding:6mm}
-    .hd{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #04336b;padding-bottom:9px;margin-bottom:14px}
-    h1{font-size:21px;color:#04336b}
-    .sub{font-size:12px;color:#3a5572;margin-top:2px}
-    .meta{font-size:10px;color:#7a93b0;text-align:right}
-    h2{font-size:13px;color:#04336b;margin:16px 0 7px;padding-bottom:4px;border-bottom:1.5px solid #cddaee}
-    .kpis{display:flex;gap:9px;flex-wrap:wrap}
-    .kpi{border:1.5px solid #cddaee;border-radius:8px;padding:9px 14px;min-width:105px}
-    .kpi .v{font-size:20px;font-weight:800;color:#0f5bbf;line-height:1}
-    .kpi .l{font-size:9.5px;color:#7a93b0;margin-top:3px}
-    .kpi.red .v{color:#c01c1c}.kpi.green .v{color:#0e7a45}
-    table{width:100%;border-collapse:collapse;margin-top:7px}
-    th{background:#e8f2fd;color:#04336b;font-size:9px;text-transform:uppercase;letter-spacing:.4px;padding:6px;text-align:left;border-bottom:1.5px solid #cddaee}
-    td{padding:6px;border-bottom:1px solid #e4ecf7;vertical-align:top;font-size:10px}
-    .dim{color:#7a93b0;font-size:9px}
-    .r-exp{background:#fdeaea}.r-ok{background:#f4fcf8}
-    .two{display:flex;gap:18px}.two>div{flex:1}
-    .foot{margin-top:18px;padding-top:9px;border-top:1.5px solid #cddaee;font-size:9px;color:#7a93b0;text-align:center}
-    </style></head><body>
-    <div class="hd"><div><h1>🎙️ Voz da Operação</h1>
-      <div class="sub">Relatório Gerencial · ${esc(cdLabel)}</div></div>
-      <div class="meta">Emitido em ${new Date().toLocaleString('pt-BR')}<br>
-      Por ${esc(S.user.name)} · ${ROLE_LABEL[S.user.role]}</div></div>
-
-    <h2>Pontos de Atenção — Indicadores</h2>
+  pdfShell('Pontos de Atenção', 'Relatório de logística', `
     <div class="kpis">
       <div class="kpi"><div class="v">${total}</div><div class="l">Total</div></div>
       <div class="kpi"><div class="v">${open}</div><div class="l">Em aberto</div></div>
       <div class="kpi green"><div class="v">${done}</div><div class="l">Tratados</div></div>
       <div class="kpi red"><div class="v">${exp}</div><div class="l">Vencidos</div></div>
       <div class="kpi"><div class="v">${total ? Math.round(done / total * 100) : 0}%</div><div class="l">Resolução</div></div>
+      <div class="kpi"><div class="v">${done ? Math.round(onTime / done * 100) : 0}%</div><div class="l">No prazo</div></div>
     </div>
-
     <div class="two">
-      <div><h2>Ocorrências por tema</h2>
-      <table><thead><tr><th>Tema</th><th>Total</th><th>Tratados</th><th>%</th></tr></thead><tbody>
-      ${stats.length ? stats.map(s => `<tr><td>${esc(s.label)}</td><td>${s.total}</td><td>${s.done}</td><td><strong>${s.pct}%</strong></td></tr>`).join('')
-        : '<tr><td colspan="4" class="dim">Sem dados</td></tr>'}
+      <div><h2>Por tema</h2><table><thead><tr><th>Tema</th><th>Total</th><th>Tratados</th><th>%</th></tr></thead><tbody>
+        ${stats.length ? stats.map(s => `<tr><td>${esc(s.label)}</td><td>${s.total}</td><td>${s.done}</td><td><strong>${s.pct}%</strong></td></tr>`).join('') : '<tr><td colspan="4" class="dim">Sem dados</td></tr>'}
       </tbody></table></div>
-      <div><h2>Pesquisa de clima</h2>
-      <table><thead><tr><th>Tema</th><th>Média</th><th>Satisfação</th><th>Respostas</th></tr></thead><tbody>
-      ${sStats.length ? sStats.map(s => `<tr><td>${esc(s.label)}</td><td><strong>${s.avg.toFixed(1)}</strong></td><td>${s.sat}%</td><td>${s.responders}</td></tr>`).join('')
-        : '<tr><td colspan="4" class="dim">Nenhuma resposta registrada</td></tr>'}
+      <div><h2>Por supervisor</h2><table><thead><tr><th>Supervisor</th><th>Total</th><th>Tratados</th><th>Vencidos</th></tr></thead><tbody>
+        ${sups.length ? sups.map(s => `<tr class="${s.expired ? 'r-exp' : ''}"><td>${esc(s.name)}</td><td>${s.total}</td><td>${s.done}</td><td>${s.expired || '—'}</td></tr>`).join('') : '<tr><td colspan="4" class="dim">Sem dados</td></tr>'}
       </tbody></table></div>
     </div>
+    <h2>Detalhamento${l.length > 120 ? ' (120 mais recentes)' : ''}</h2>
+    <table><thead><tr><th>CD</th><th>Tema</th><th>Assunto</th><th>Criticidade</th><th>Responsável</th><th>Registrado por</th><th>Data</th><th>Status</th></tr></thead>
+    <tbody>${linhas || '<tr><td colspan="8" class="dim">Nenhum ponto registrado</td></tr>'}</tbody></table>`, true);
+}
 
-    <h2>Detalhamento dos pontos de atenção${l.length > 120 ? ' (120 mais recentes)' : ''}</h2>
-    <table><thead><tr><th>CD</th><th>Tema</th><th>Assunto</th><th>Criticidade</th><th>Supervisor</th><th>Registrado por</th><th>Data</th><th>Status</th></tr></thead>
-    <tbody>${rowsHtml || '<tr><td colspan="8" class="dim">Nenhum ponto registrado</td></tr>'}</tbody></table>
+/* ---- Participação na pesquisa ---- */
+function pdfParticipacao() {
+  const rd = S._partRound;
+  if (!rd) { toast('Nenhuma rodada para relatar.', 'orange'); return; }
+  const emps = M.employees.filter(e => dashCds().includes(e.cd) && e.active !== false);
+  const parts = M.survey_participations.filter(p => p.round_id === rd.id);
+  const pct = emps.length ? Math.round(parts.length / emps.length * 100) : 0;
 
-    <div class="foot">Voz da Operação · Lactalis Brasil — documento gerado automaticamente</div>
-    <script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script>
-    </body></html>`);
-  w.document.close();
-  toast('Use "Salvar como PDF" na janela de impressão.', 'blue');
+  const porTurno = SHIFTS.map(sh => {
+    const e = emps.filter(x => x.shift === sh);
+    const p = parts.filter(x => x.shift === sh).length;
+    return { sh, tot: e.length, p, pct: e.length ? Math.round(p / e.length * 100) : 0 };
+  }).filter(x => x.tot > 0);
+
+  const linhas = emps.map(e => {
+    const p = parts.find(x => x.matricula === e.matricula);
+    const h = employeeHistory(e);
+    const hp = h.total ? Math.round(h.done / h.total * 100) : 0;
+    return { e, p, h, hp };
+  }).sort((a, b) => (a.p ? 1 : 0) - (b.p ? 1 : 0) || a.e.name.localeCompare(b.e.name))
+    .map(r => `<tr class="${r.p ? 'r-ok' : 'r-warn'}">
+      <td><strong>${esc(r.e.matricula)}</strong></td><td>${esc(r.e.name)}</td>
+      <td>${esc(r.e.job_title || '—')}</td><td>${esc(r.e.shift)}</td>
+      <td>${esc(r.e.cd.replace('CD ', ''))}</td>
+      <td><span class="tagx ${r.p ? 't-ok' : 't-no'}">${r.p ? 'Participou' : 'Falta'}</span></td>
+      <td>${r.h.done}/${r.h.total} <span class="dim">(${r.hp}%)</span></td></tr>`).join('');
+
+  pdfShell('Participação na Pesquisa', esc(rd.title), `
+    <div class="kpis">
+      <div class="kpi green"><div class="v">${parts.length}</div><div class="l">Participaram</div></div>
+      <div class="kpi red"><div class="v">${emps.length - parts.length}</div><div class="l">Faltam</div></div>
+      <div class="kpi"><div class="v">${emps.length}</div><div class="l">Colaboradores</div></div>
+      <div class="kpi"><div class="v">${pct}%</div><div class="l">Adesão</div></div>
+    </div>
+    <h2>Adesão por turno</h2>
+    <table><thead><tr><th>Turno</th><th>Participaram</th><th>Total</th><th>Adesão</th></tr></thead><tbody>
+      ${porTurno.map(t => `<tr><td>${esc(t.sh)}</td><td>${t.p}</td><td>${t.tot}</td>
+        <td><div class="bar"><i style="width:${t.pct}%"></i></div> ${t.pct}%</td></tr>`).join('')}
+    </tbody></table>
+    <h2>Colaboradores</h2>
+    <table><thead><tr><th>Matrícula</th><th>Nome</th><th>Função</th><th>Turno</th><th>CD</th><th>Rodada atual</th><th>Histórico</th></tr></thead>
+    <tbody>${linhas || '<tr><td colspan="7" class="dim">Nenhum colaborador</td></tr>'}</tbody></table>`, true);
+}
+
+/* ---- Resultados da pesquisa ---- */
+function pdfPesquisa() {
+  const cds = dashCds();
+  const res = M.survey_responses.filter(r => cds.includes(r.cd));
+  const ver = currentVersion();
+  const stats = surveyStatsFor(res, ver ? ver.themes : []);
+  if (!stats.length) { toast('Nenhuma resposta para relatar.', 'orange'); return; }
+
+  const tc = stats.reduce((a, s) => a + s.count, 0);
+  const avg = stats.reduce((a, s) => a + s.avg * s.count, 0) / tc;
+  const sat = Math.round(stats.reduce((a, s) => a + s.sat * s.count, 0) / tc);
+  const sorted = [...stats].sort((a, b) => b.avg - a.avg);
+
+  const sugs = res.filter(r => r.suggestion).sort((a, b) => b.created_at - a.created_at);
+
+  pdfShell('Resultados da Pesquisa', 'Clima organizacional', `
+    <div class="kpis">
+      <div class="kpi"><div class="v">${res.length}</div><div class="l">Respostas</div></div>
+      <div class="kpi"><div class="v">${avg.toFixed(1)}</div><div class="l">Média geral</div></div>
+      <div class="kpi"><div class="v">${sat}%</div><div class="l">Satisfação</div></div>
+      <div class="kpi green"><div class="v" style="font-size:13px">${esc(sorted[0].label)}</div><div class="l">Melhor tema</div></div>
+      <div class="kpi red"><div class="v" style="font-size:13px">${esc(sorted[sorted.length - 1].label)}</div><div class="l">Mais crítico</div></div>
+    </div>
+    <h2>Indicadores por tema</h2>
+    <table><thead><tr><th>Tema</th><th>Média</th><th>Satisfação</th><th>Respondentes</th><th>Distribuição</th></tr></thead><tbody>
+      ${sorted.map(s => `<tr><td><strong>${esc(s.label)}</strong></td>
+        <td>${s.avg.toFixed(1)}</td><td>${s.sat}%</td><td>${s.responders}</td>
+        <td><div class="bar"><i style="width:${Math.round(s.avg / 5 * 100)}%"></i></div></td></tr>`).join('')}
+    </tbody></table>
+    <h2>Sugestões recebidas (${sugs.length})</h2>
+    <table><thead><tr><th style="width:78%">Sugestão</th><th>CD</th><th>Data</th></tr></thead><tbody>
+      ${sugs.length ? sugs.slice(0, 100).map(r => `<tr><td><em>"${esc(r.suggestion)}"</em></td>
+        <td>${esc(r.cd.replace('CD ', ''))}</td><td class="dim">${fmtDate(r.created_at)}</td></tr>`).join('')
+        : '<tr><td colspan="3" class="dim">Nenhuma sugestão registrada</td></tr>'}
+    </tbody></table>`, false);
+}
+
+/* ---- Votação ---- */
+function pdfVotacao() {
+  const el = S._voteElection;
+  if (!el) { toast('Nenhuma eleição para relatar.', 'orange'); return; }
+  const cands = candidatesOf(el.id), tally = tallyFor(el.id);
+  const votes = validVotes(el.id);
+  const emps = M.employees.filter(e => e.cd === el.cd && e.active !== false);
+  const pct = emps.length ? Math.round(votes.length / emps.length * 100) : 0;
+  const maxV = Math.max(...Object.values(tally), 1);
+  const part = participationOf(el.id);
+
+  const linhas = emps.map(e => {
+    const v = part.find(x => x.voter_matricula === e.matricula && x.status === 'valid');
+    return { e, v };
+  }).sort((a, b) => (a.v ? 1 : 0) - (b.v ? 1 : 0) || a.e.name.localeCompare(b.e.name))
+    .map(r => `<tr class="${r.v ? 'r-ok' : 'r-warn'}">
+      <td><strong>${esc(r.e.matricula)}</strong></td><td>${esc(r.e.name)}</td>
+      <td>${esc(r.e.shift)}</td>
+      <td><span class="tagx ${r.v ? 't-ok' : 't-no'}">${r.v ? 'Votou' : 'Falta votar'}</span></td>
+      <td class="dim">${r.v ? fmtDate(r.v.created_at) : '—'}</td></tr>`).join('');
+
+  pdfShell('Eleição de Porta-Voz', esc(el.title), `
+    <div class="kpis">
+      <div class="kpi"><div class="v">${votes.length}</div><div class="l">Votos válidos</div></div>
+      <div class="kpi"><div class="v">${emps.length}</div><div class="l">Aptos</div></div>
+      <div class="kpi"><div class="v">${pct}%</div><div class="l">Adesão</div></div>
+      <div class="kpi"><div class="v">${cands.length}</div><div class="l">Candidatos</div></div>
+    </div>
+    <h2>Apuração</h2>
+    <table><thead><tr><th>Candidato</th><th>Turno</th><th>Votos</th><th>%</th><th>Distribuição</th></tr></thead><tbody>
+      ${cands.sort((a, b) => (tally[b.id] || 0) - (tally[a.id] || 0)).map(c => {
+        const v = tally[c.id] || 0;
+        return `<tr><td><strong>${esc(c.name)}</strong></td><td>${esc(c.shift)}</td>
+          <td>${v}</td><td>${votes.length ? Math.round(v / votes.length * 100) : 0}%</td>
+          <td><div class="bar"><i style="width:${Math.round(v / maxV * 100)}%"></i></div></td></tr>`;
+      }).join('') || '<tr><td colspan="5" class="dim">Nenhum candidato</td></tr>'}
+    </tbody></table>
+    <h2>Participação</h2>
+    <p class="dim" style="margin-bottom:4px">O voto é secreto: esta lista mostra apenas quem participou, nunca em quem votou.</p>
+    <table><thead><tr><th>Matrícula</th><th>Nome</th><th>Turno</th><th>Status</th><th>Quando</th></tr></thead>
+    <tbody>${linhas || '<tr><td colspan="5" class="dim">Nenhum colaborador</td></tr>'}</tbody></table>`, false);
+}
+
+/* ---- Histórico de eleições ---- */
+function pdfEleicoes() {
+  const hist = M.elections.filter(e => dashCds().includes(e.cd)).sort((a, b) => b.created_at - a.created_at);
+  if (!hist.length) { toast('Nenhuma eleição cadastrada.', 'orange'); return; }
+  pdfShell('Histórico de Eleições', 'Porta-vozes por período', `
+    ${hist.map(e => `
+      <h2>${esc(e.title)} — ${esc(e.cd)} ${e.status === 'open' ? '<span class="tagx t-md">Em andamento</span>' : ''}</h2>
+      <p class="dim">Aberta em ${fmtDateFull(e.created_at)}${e.closed_at ? ' · encerrada em ' + fmtDateFull(e.closed_at) : ''} · ${e.total_votes || 0} votos</p>
+      <table><thead><tr><th>Turno</th><th>Porta-voz eleito</th><th>Setor</th><th>Votos</th></tr></thead><tbody>
+        ${(e.winners || []).length ? e.winners.map(w => `<tr class="r-ok"><td>${esc(w.shift)}</td>
+          <td><strong>${esc(w.name)}</strong></td><td>${esc(w.sector || '—')}</td><td>${w.votes}</td></tr>`).join('')
+          : '<tr><td colspan="4" class="dim">Sem eleitos registrados</td></tr>'}
+      </tbody></table>`).join('')}`, false);
+}
+
+/* ---- Histórico de rodadas ---- */
+function pdfRodadas() {
+  const rounds = M.survey_rounds.filter(r => dashCds().includes(r.cd)).sort((a, b) => b.created_at - a.created_at);
+  if (!rounds.length) { toast('Nenhuma rodada cadastrada.', 'orange'); return; }
+  pdfShell('Rodadas de Pesquisa', 'Histórico trimestral', `
+    <table><thead><tr><th>Rodada</th><th>CD</th><th>Período</th><th>Versão</th><th>Respostas</th><th>Adesão</th><th>Média</th><th>Status</th></tr></thead><tbody>
+    ${rounds.map(r => {
+      const res = M.survey_responses.filter(x => x.round_id === r.id);
+      const parts = M.survey_participations.filter(x => x.round_id === r.id).length;
+      const base = M.employees.filter(e => e.cd === r.cd && e.active !== false).length;
+      const ver = M.survey_theme_versions.find(v => v.version === r.theme_version);
+      const st = ver ? surveyStatsFor(res, ver.themes) : [];
+      const tc = st.reduce((a, s) => a + s.count, 0);
+      const avg = tc ? st.reduce((a, s) => a + s.avg * s.count, 0) / tc : 0;
+      return `<tr class="${r.status === 'open' ? 'r-warn' : ''}">
+        <td><strong>${esc(r.title)}</strong></td><td>${esc(r.cd.replace('CD ', ''))}</td>
+        <td class="dim">${fmtDateFull(r.created_at)}${r.closed_at ? ' a ' + fmtDateFull(r.closed_at) : ''}</td>
+        <td>V${r.theme_version}</td><td>${res.length}</td>
+        <td>${base ? Math.round(parts / base * 100) : 0}%</td>
+        <td>${avg ? avg.toFixed(1) : '—'}</td>
+        <td>${r.status === 'open' ? '<span class="tagx t-md">Aberta</span>' : '<span class="tagx t-ok">Encerrada</span>'}</td></tr>`;
+    }).join('')}
+    </tbody></table>`, true);
 }
 
 /* ══════════ BACKUP ══════════ */
@@ -2730,7 +3012,7 @@ function showConnectionState(online, err) {
   // Sessão de gestor ainda válida? Restaura direto no painel.
   if (online && DB.profile) {
     S.user = DB.profile;
-    S.dashCd = S.user.cd === 'TODOS' ? 'TODOS' : S.user.cd;
+    S.dashCd = (S.user.cd === REGIONAL || S.user.cd === 'TODOS') ? REGIONAL : S.user.cd;
   }
 
   try { await loadAll(); } catch (e) { err = err || e.message; }

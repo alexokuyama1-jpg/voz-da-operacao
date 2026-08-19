@@ -671,6 +671,47 @@
   </div>
 </div>
 
+<div id="modal-reassign" class="modal-overlay hidden" onclick="if(event.target===this)closeModal('modal-reassign')">
+  <div class="modal">
+    <div class="modal-title">🔄 Trocar Responsável <button class="modal-close" onclick="closeModal('modal-reassign')">✕</button></div>
+    <div id="ra-preview" class="preview-box"></div>
+    <div class="form-group">
+      <label class="form-label">Novo responsável <span class="req">*</span></label>
+      <select class="form-select" id="ra-supervisor" onchange="validateReassign()"></select>
+      <div class="field-hint">Apenas supervisores e administradores podem receber pontos.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Motivo da troca <span class="req">*</span></label>
+      <textarea class="form-textarea" id="ra-reason" placeholder="Ex: Férias do responsável de 10/09 a 30/09" maxlength="200" oninput="validateReassign()"></textarea>
+      <div class="char-hint" id="ra-char">0 / 200</div>
+    </div>
+    <div class="info-box blue"><span class="info-box-icon">⏱</span>
+      <div>O prazo <strong>não é reiniciado</strong> — o contador segue do momento do registro original.</div></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('modal-reassign')">Cancelar</button>
+      <button class="btn-primary" id="ra-btn" disabled onclick="confirmReassign()">🔄 Transferir</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-del-occ" class="modal-overlay hidden" onclick="if(event.target===this)closeModal('modal-del-occ')">
+  <div class="modal">
+    <div class="modal-title">🗑️ Excluir Ponto <button class="modal-close" onclick="closeModal('modal-del-occ')">✕</button></div>
+    <div id="do-preview" class="preview-box"></div>
+    <div class="info-box orange mb-1"><span class="info-box-icon">⚠️</span>
+      <div>O registro será apagado definitivamente e sai de todos os indicadores. Esta ação <strong>não pode ser desfeita</strong>.</div></div>
+    <div class="form-group">
+      <label class="form-label">Motivo da exclusão <span class="req">*</span></label>
+      <textarea class="form-textarea" id="do-reason" placeholder="Ex: Registro duplicado do mesmo problema" maxlength="200" oninput="countChar('do-reason','do-char',200,5,'do-btn')"></textarea>
+      <div class="char-hint" id="do-char">0 / 200</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('modal-del-occ')">Cancelar</button>
+      <button class="btn-primary danger" id="do-btn" disabled onclick="confirmDeleteOcc()">🗑️ Excluir</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-excluir" class="modal-overlay hidden" onclick="if(event.target===this)closeModal('modal-excluir')">
   <div class="modal">
     <div class="modal-title">🗑️ Excluir Candidato <button class="modal-close" onclick="closeModal('modal-excluir')">✕</button></div>
@@ -741,7 +782,10 @@
     <div class="form-row">
       <div class="form-group"><label class="form-label">Centro de Distribuição</label><select class="form-select" id="emp-cd"></select></div>
       <div class="form-group"><label class="form-label">Turno</label>
-        <select class="form-select" id="emp-shift"><option>1º Turno</option><option>2º Turno</option><option>3º Turno</option></select></div>
+        <select class="form-select" id="emp-shift">
+          <option>1º Turno</option><option>2º Turno</option><option>3º Turno</option>
+          <option>Intermediário</option><option>Adm</option>
+        </select></div>
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Setor</label><input type="text" class="form-input" id="emp-sector" placeholder="Ex: Expedição"></div>

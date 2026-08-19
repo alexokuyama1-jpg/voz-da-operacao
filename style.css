@@ -622,3 +622,8 @@ table{border-collapse:collapse}
 .crit-select.media{border-color:var(--orange);color:var(--orange);background:var(--orange-bg)}
 .crit-select.alta {border-color:var(--red);color:var(--red);background:var(--red-bg)}
 .cd-select{max-width:120px;font-weight:600}
+
+/* ---------- ações administrativas no card do ponto ---------- */
+.admin-acts{display:flex;gap:5px;margin-top:6px;justify-content:center}
+.occ-actions .btn-icon{width:28px;height:28px;font-size:.8rem}
+@media(max-width:560px){.admin-acts{margin-top:0}}
