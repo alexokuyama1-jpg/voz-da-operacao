@@ -889,7 +889,7 @@ function refreshBanner() {
 async function doLogin() {
   const m = $('l-user').value.trim(), p = $('l-pass').value;
   const err = $('l-err');
-  if (!m || !p) { err.textContent = 'Informe matrícula e senha.'; err.classList.remove('hidden'); return; }
+  if (!m || !p) { err.textContent = 'Informe o e-mail e a senha.'; err.classList.remove('hidden'); return; }
   const btn = document.querySelector('#gestor-login .btn-primary');
   btn.disabled = true; btn.textContent = 'Entrando...';
   try {
@@ -2065,7 +2065,7 @@ function renderCfgUsers() {
       <div class="list-body">
         <div class="list-name">${esc(u.name)}
           <span class="badge ${u.role === 'admin' ? 'badge-gray' : u.role === 'gerente' ? 'badge-purple' : u.role === 'coordenador' ? 'badge-blue' : 'badge-green'}">${ROLE_LABEL[u.role]}</span></div>
-        <div class="list-meta">Matrícula ${esc(u.matricula)} · ${esc(u.cd)} · ${esc(u.email || 'sem e-mail')}</div>
+        <div class="list-meta">🔑 ${esc(u.email || 'sem e-mail de login')} · Matrícula ${esc(u.matricula)} · ${esc(u.cd)}</div>
       </div>
       <button class="btn-icon" onclick="openUserModal('${u.id}')">✏️</button>
       ${u.id !== 'u0' ? `<button class="btn-icon del" onclick="removeUser('${u.id}')">🗑</button>` : ''}
@@ -2088,34 +2088,49 @@ function openUserModal(id) {
 async function submitUser() {
   const name = $('usr-name').value.trim(), mat = $('usr-matricula').value.trim(), pass = $('usr-pass').value.trim();
   const role = $('usr-role').value, cd = $('usr-cd').value, email = $('usr-email').value.trim();
+  const mail = DB.normalizeEmail(email);
   if (!name || !mat) { toast('Nome e matrícula são obrigatórios.', 'orange'); return; }
+  if (!mail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) {
+    toast('Informe um e-mail válido — é com ele que a pessoa faz login.', 'orange'); return;
+  }
   if (!S._editUser && !pass) { toast('Defina uma senha para o novo gestor.', 'orange'); return; }
   if (M.profiles.some(u => u.matricula === mat && u.id !== S._editUser)) { toast('Já existe gestor com esta matrícula.', 'orange'); return; }
+  if (M.profiles.some(u => String(u.email || '').toLowerCase() === mail && u.id !== S._editUser)) {
+    toast('Este e-mail já está em uso por outro gestor.', 'orange'); return;
+  }
   try {
     if (S._editUser) {
-      const patch = { name, matricula: mat, role, cd, email };
+      const orig0 = byId(M.profiles, S._editUser);
+      const patch = { name, role, cd, email };
       if (DB.online) {
+        // A matrícula é o login: trocar exige atualizar também o Auth.
+        if (orig0 && orig0.matricula !== mat) {
+          await DB.rpc('set_staff_matricula', { p_profile: S._editUser, p_matricula: mat });
+        }
         await DB.update('profiles', S._editUser, patch);
         const orig = byId(M.profiles, S._editUser);
-        if (pass && pass !== '••••••') {
+        if (pass) {
           await DB.rpc('set_staff_password', { p_profile: S._editUser, p_password: pass });
         }
-        Object.assign(orig, patch);
+        Object.assign(orig, patch, { matricula: mat });
+        if (S.user && S.user.id === S._editUser) Object.assign(S.user, patch, { matricula: mat });
       } else {
-        patch.password = pass;
+        patch.matricula = mat;
+        if (pass) patch.password = pass;
         await DB.update('profiles', S._editUser, patch);
         Object.assign(byId(M.profiles, S._editUser), patch);
       }
-      toast('Gestor atualizado!', 'green');
+      toast('Gestor atualizado!' + (orig0 && orig0.matricula !== mat
+        ? ' O novo login é a matrícula ' + mat + '.' : ''), 'green');
     } else {
       if (DB.online) {
         await DB.rpc('create_staff', {
           p_matricula: mat, p_name: name, p_password: pass,
-          p_role: role, p_cd: cd, p_email: email,
+          p_role: role, p_cd: cd, p_email: mail,
         });
         M.profiles = await DB.select('profiles');
       } else {
-        const rec = await DB.insert('profiles', { name, matricula: mat, password: pass, role, cd, email, active: true });
+        const rec = await DB.insert('profiles', { name, matricula: mat, password: pass, role, cd, email: mail, active: true });
         M.profiles.push(rec);
       }
       toast('Gestor cadastrado!', 'green');

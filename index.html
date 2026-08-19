@@ -370,8 +370,10 @@
       <div class="login-icon">🔐</div>
       <div class="login-title">Acesso Restrito</div>
       <div class="login-sub">Área exclusiva para gestores cadastrados</div>
-      <div class="form-group"><label class="form-label">Matrícula</label>
-        <input class="form-input" id="l-user" type="text" autocomplete="username" placeholder="Sua matrícula" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="form-group"><label class="form-label">E-mail corporativo</label>
+        <input class="form-input" id="l-user" type="email" autocomplete="username" inputmode="email"
+               placeholder="nome.sobrenome@br.lactalis.com" onkeydown="if(event.key==='Enter')doLogin()">
+        <div class="field-hint">Pode digitar só a parte antes do @ — completamos com <strong>@br.lactalis.com</strong>.</div></div>
       <div class="form-group"><label class="form-label">Senha</label>
         <input class="form-input" id="l-pass" type="password" autocomplete="current-password" placeholder="Sua senha" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <div class="login-err hidden" id="l-err"></div>
@@ -719,7 +721,9 @@
         </select></div>
       <div class="form-group"><label class="form-label">Centro de Distribuição</label><select class="form-select" id="usr-cd"></select></div>
     </div>
-    <div class="form-group"><label class="form-label">E-mail</label><input type="email" class="form-input" id="usr-email" placeholder="nome@lactalis.com.br"></div>
+    <div class="form-group"><label class="form-label">E-mail corporativo (login) <span class="req">*</span></label>
+      <input type="email" class="form-input" id="usr-email" placeholder="nome.sobrenome@br.lactalis.com">
+      <div class="field-hint">É com este e-mail que a pessoa entra no sistema.</div></div>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('modal-user')">Cancelar</button>
       <button class="btn-primary" onclick="submitUser()">✅ Salvar</button>
@@ -781,7 +785,7 @@
   <div class="modal">
     <div class="modal-title">📧 Novo Destinatário <button class="modal-close" onclick="closeModal('modal-email')">✕</button></div>
     <div class="form-group"><label class="form-label">Nome / Referência</label><input type="text" class="form-input" id="eml-name" placeholder="Ex: Supervisão Turno A"></div>
-    <div class="form-group"><label class="form-label">E-mail</label><input type="email" class="form-input" id="eml-addr" placeholder="nome@lactalis.com.br"></div>
+    <div class="form-group"><label class="form-label">E-mail</label><input type="email" class="form-input" id="eml-addr" placeholder="nome.sobrenome@br.lactalis.com"></div>
     <div class="form-group"><label class="form-label">Centro de Distribuição</label><select class="form-select" id="eml-cd"></select></div>
     <div class="form-group"><label class="form-label">Receber alertas de</label>
       <div class="check-list">

@@ -46,15 +46,15 @@ const DB = (function () {
     ];
     return {
       profiles: [
-        { id: 'u0', matricula: 'admin', name: 'Administrador',     password: 'lactalis2025', role: 'admin',       cd: 'TODOS',       email: 'admin@lactalis.com.br',      active: true },
-        { id: 'u1', matricula: '10001', name: 'Julio César',       password: 'muda@2025',    role: 'gerente',     cd: 'TODOS',       email: 'julio@lactalis.com.br',      active: true },
-        { id: 'u2', matricula: '10002', name: 'Anderson Rafael',   password: 'muda@2025',    role: 'coordenador', cd: 'CD Carambeí', email: 'anderson@lactalis.com.br',   active: true },
-        { id: 'u3', matricula: '10003', name: 'Alexsander Hortiz', password: 'muda@2025',    role: 'coordenador', cd: 'CD Carambeí', email: 'alexsander@lactalis.com.br', active: true },
-        { id: 'u4', matricula: '10004', name: 'William Moreira',   password: 'muda@2025',    role: 'coordenador', cd: 'CD Londrina', email: 'william@lactalis.com.br',    active: true },
-        { id: 'u5', matricula: '10005', name: 'Aliffer Almeida',   password: 'muda@2025',    role: 'supervisor',  cd: 'CD Carambeí', email: 'aliffer@lactalis.com.br',    active: true },
-        { id: 'u6', matricula: '10006', name: 'Marcos Vinícius',   password: 'muda@2025',    role: 'supervisor',  cd: 'CD Carambeí', email: 'marcos@lactalis.com.br',     active: true },
-        { id: 'u7', matricula: '10007', name: 'Renata Prado',      password: 'muda@2025',    role: 'supervisor',  cd: 'CD Curitiba', email: 'renata@lactalis.com.br',     active: true },
-        { id: 'u8', matricula: '10008', name: 'Diego Ramos',       password: 'muda@2025',    role: 'supervisor',  cd: 'CD Londrina', email: 'diego@lactalis.com.br',      active: true },
+        { id: 'u0', matricula: 'admin', name: 'Administrador',     password: 'lactalis2025', role: 'admin',       cd: 'TODOS',       email: 'admin@br.lactalis.com',      active: true },
+        { id: 'u1', matricula: '10001', name: 'Julio César',       password: 'muda@2025',    role: 'gerente',     cd: 'TODOS',       email: 'julio.woellner@br.lactalis.com',      active: true },
+        { id: 'u2', matricula: '10002', name: 'Anderson Rafael',   password: 'muda@2025',    role: 'coordenador', cd: 'CD Carambeí', email: 'anderson.moreira@br.lactalis.com',   active: true },
+        { id: 'u3', matricula: '10003', name: 'Alexsander Hortiz', password: 'muda@2025',    role: 'coordenador', cd: 'CD Carambeí', email: 'alexsander.hortiz@br.lactalis.com', active: true },
+        { id: 'u4', matricula: '10004', name: 'William Moreira',   password: 'muda@2025',    role: 'coordenador', cd: 'CD Londrina', email: 'william.moreira@br.lactalis.com',    active: true },
+        { id: 'u5', matricula: '10005', name: 'Aliffer Almeida',   password: 'muda@2025',    role: 'supervisor',  cd: 'CD Carambeí', email: 'aliffer.almeida@br.lactalis.com',    active: true },
+        { id: 'u6', matricula: '10006', name: 'Marcos Vinícius',   password: 'muda@2025',    role: 'supervisor',  cd: 'CD Carambeí', email: 'marcos.vinicius@br.lactalis.com',     active: true },
+        { id: 'u7', matricula: '10007', name: 'Renata Prado',      password: 'muda@2025',    role: 'supervisor',  cd: 'CD Curitiba', email: 'renata.prado@br.lactalis.com',     active: true },
+        { id: 'u8', matricula: '10008', name: 'Diego Ramos',       password: 'muda@2025',    role: 'supervisor',  cd: 'CD Londrina', email: 'diego.ramos@br.lactalis.com',      active: true },
       ],
       employees: [
         { id: 'e1', matricula: '20001', name: 'Ana Souza',     cd: 'CD Carambeí', shift: '1º Turno', sector: 'Expedição',   job_title: 'Conferente',               admission_date: '2019-03-11', active: true },
@@ -86,7 +86,7 @@ const DB = (function () {
         { id: 'v1', version: 1, created_at: Date.now(), description: 'Versão inicial · 5 temas · 25 perguntas', themes, is_current: true }
       ],
       notify_emails: [
-        { id: 'n1', name: 'Coordenação Carambeí', address: 'coordenacao.carambei@lactalis.com.br', cd: 'CD Carambeí', on_new: true, on_warning: true, on_expired: true },
+        { id: 'n1', name: 'Coordenação Carambeí', address: 'coordenacao.carambei@br.lactalis.com', cd: 'CD Carambeí', on_new: true, on_warning: true, on_expired: true },
       ],
       candidates: [], elections: [], votes: [], occurrences: [],
       survey_rounds: [], survey_responses: [], survey_participations: [],
@@ -146,13 +146,15 @@ const DB = (function () {
       JA_CANCELOU_UMA_VEZ: 'Este colaborador já teve um voto cancelado nesta eleição.',
       MOTIVO_CURTO:        'Descreva o motivo com ao menos 10 caracteres.',
       MATRICULA_EM_USO:    'Já existe um gestor com esta matrícula.',
+      EMAIL_EM_USO:        'Este e-mail já está em uso por outro gestor.',
+      EMAIL_INVALIDO:      'E-mail inválido.',
       SENHA_CURTA:         'A senha precisa de ao menos 6 caracteres.',
       NAO_PODE_REMOVER_A_SI:'Você não pode remover o próprio usuário.',
       VOTO_NAO_ENCONTRADO: 'Voto não encontrado.',
       VOTO_NAO_VALIDO:     'Este voto já foi cancelado ou anulado.',
     };
     for (const k in dict) if (msg.includes(k)) return dict[k];
-    if (msg.includes('Invalid login')) return 'Matrícula ou senha incorretos.';
+    if (msg.includes('Invalid login')) return 'E-mail ou senha incorretos.';
     if (msg.includes('duplicate key')) return 'Registro duplicado.';
     if (/row-level security|permission denied/i.test(msg)) return 'Sem permissão para esta operação.';
     return msg;
@@ -176,8 +178,18 @@ const DB = (function () {
   /* ==========================================================
      API PÚBLICA
      ========================================================== */
+  const DOMAIN = '@br.lactalis.com';
+
   return {
     get online() { return ONLINE; },
+    get domain() { return DOMAIN; },
+
+    /* 'julio' → 'julio@br.lactalis.com' · já com @ mantém como está */
+    normalizeEmail(v) {
+      const t = String(v || '').trim().toLowerCase();
+      if (!t) return '';
+      return t.includes('@') ? t : t + DOMAIN;
+    },
     get profile() { return profile; },
     get session() { return session; },
 
@@ -197,15 +209,19 @@ const DB = (function () {
     },
 
     /* ---------- Autenticação ---------- */
-    async signIn(matricula, password) {
+    /* Login por e-mail corporativo. Se a pessoa digitar só a parte
+       antes do @, completamos com o domínio padrão da empresa. */
+    async signIn(login, password) {
+      const email = DB.normalizeEmail(login);
       if (!ONLINE) {
         const u = load().profiles.find(x =>
-          x.matricula === String(matricula).trim() && x.password === password && x.active !== false);
-        if (!u) throw new Error('Matrícula ou senha incorretos.');
+          (String(x.email || '').toLowerCase() === email ||
+           x.matricula === String(login).trim()) &&
+          x.password === password && x.active !== false);
+        if (!u) throw new Error('E-mail ou senha incorretos.');
         profile = clone(u);
         return profile;
       }
-      const email = String(matricula).trim().toLowerCase() + '@voz.local';
       const r = await sb.auth.signInWithPassword({ email, password });
       if (r.error) throw new Error(mapError(r.error));
       session = r.data.session;
