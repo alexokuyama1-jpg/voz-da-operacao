@@ -59,7 +59,15 @@ const initials = n => String(n || '?').trim().split(/\s+/).map(w => w[0]).join('
 const byId = (arr, id) => arr.find(x => x.id === id) || null;
 const uniq = a => [...new Set(a)];
 
-const elapsed = o => Date.now() - o.created_at;
+/* O Supabase devolve datas como texto ISO; o modo local usa números.
+   toMs() aceita os dois e sempre devolve milissegundos. */
+function toMs(v) {
+  if (v == null || v === '') return 0;
+  if (typeof v === 'number') return v;
+  const n = Date.parse(v);
+  return isNaN(n) ? 0 : n;
+}
+const elapsed = o => Date.now() - toMs(o.created_at);
 const remaining = o => (o.sla_hours * H) - elapsed(o);
 
 function fmtTimer(ms) {
@@ -67,7 +75,7 @@ function fmtTimer(ms) {
   return pad(Math.floor(ms / H)) + ':' + pad(Math.floor((ms % H) / 60000)) + ':' + pad(Math.floor((ms % 60000) / 1000));
 }
 function fmtDate(ts) {
-  const d = new Date(ts);
+  const d = new Date(toMs(ts));
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ', ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 function fmtDateISO(iso) {
@@ -76,10 +84,10 @@ function fmtDateISO(iso) {
   return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : String(iso);
 }
 function fmtDateFull(ts) {
-  return new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return new Date(toMs(ts)).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 function quarterLabel(ts) {
-  const d = new Date(ts);
+  const d = new Date(toMs(ts));
   return `${d.getFullYear()}·T${Math.floor(d.getMonth() / 3) + 1}`;
 }
 
@@ -138,7 +146,11 @@ const currentThemes  = cd => M.log_themes.filter(t => t.cd === cd && t.active !=
 const currentVersion = () => M.survey_theme_versions.find(v => v.is_current) || M.survey_theme_versions[M.survey_theme_versions.length - 1];
 const openElection   = cd => M.elections.find(e => e.cd === cd && e.status === 'open') || null;
 const openRound      = cd => M.survey_rounds.find(r => r.cd === cd && r.status === 'open') || null;
-const employeeByMat  = (mat, cd) => M.employees.find(e => e.matricula === String(mat).trim() && e.active !== false && (!cd || e.cd === cd)) || null;
+/* Colaborador marcado como Regional (administrativo, apoio) participa
+   de qualquer CD — por isso o filtro aceita o CD dele ou 'Regional'. */
+const employeeByMat = (mat, cd) => M.employees.find(e =>
+  e.matricula === String(mat).trim() && e.active !== false &&
+  (!cd || e.cd === cd || e.cd === REGIONAL)) || null;
 
 /* Busca a matrícula. Online usa a função lookup_employee() do banco,
    que devolve uma linha por vez — a base de colaboradores nunca é
@@ -149,6 +161,11 @@ async function lookupEmployee(mat, cd) {
     const r = await DB.rpc('lookup_employee', { p_matricula: String(mat).trim(), p_cd: cd || null });
     return (r && r.length) ? r[0] : null;
   } catch (e) { return null; }
+}
+
+/* CD efetivo do colaborador: quem é Regional usa o CD escolhido na tela. */
+function empCd(emp) {
+  return (!emp || emp.cd === REGIONAL || emp.cd === 'TODOS') ? S.cd : emp.cd;
 }
 async function alreadyVoted(electionId, mat) {
   if (!DB.online) {
@@ -181,7 +198,7 @@ function participationOf(eid) {
   return M.votes.filter(v => v.election_id === eid);
 }
 function electedOf(cd) {
-  const closed = M.elections.filter(e => e.cd === cd && e.status === 'closed').sort((a, b) => b.closed_at - a.closed_at)[0];
+  const closed = M.elections.filter(e => e.cd === cd && e.status === 'closed').sort((a, b) => toMs(b.closed_at) - toMs(a.closed_at))[0];
   return closed ? (closed.winners || []) : [];
 }
 function scopeCds() {
@@ -272,14 +289,14 @@ function renderStatusCards() {
   }
 
   if (rd) {
-    const days = Math.max(0, Math.ceil((rd.ends_at - Date.now()) / DAY));
+    const days = Math.max(0, Math.ceil((toMs(rd.ends_at) - Date.now()) / DAY));
     const n = M.survey_responses.filter(r => r.round_id === rd.id).length;
     cards.push(`<div class="status-card ${days <= 7 ? 'warn' : 'open'}"><div class="sc-icon">📝</div><div>
       <div class="sc-title">Pesquisa aberta · ${days} dia${days !== 1 ? 's' : ''}</div>
       <div class="sc-sub">${n} resposta${n !== 1 ? 's' : ''} recebida${n !== 1 ? 's' : ''}</div></div></div>`);
   } else {
-    const last = M.survey_rounds.filter(r => r.cd === S.cd && r.status === 'closed').sort((a, b) => b.closed_at - a.closed_at)[0];
-    const nextIn = last ? Math.max(0, Math.ceil((last.closed_at + 90 * DAY - Date.now()) / DAY)) : null;
+    const last = M.survey_rounds.filter(r => r.cd === S.cd && r.status === 'closed').sort((a, b) => toMs(b.closed_at) - toMs(a.closed_at))[0];
+    const nextIn = last ? Math.max(0, Math.ceil((toMs(last.closed_at) + 90 * DAY - Date.now()) / DAY)) : null;
     cards.push(`<div class="status-card closed"><div class="sc-icon">📝</div><div>
       <div class="sc-title">Pesquisa fechada</div>
       <div class="sc-sub">${nextIn !== null ? 'Próxima em ~' + nextIn + ' dias' : 'Aguardando abertura'}</div></div></div>`);
@@ -337,7 +354,7 @@ function emptyBox(icon, title, sub) {
 }
 
 function renderHomeHistory() {
-  const hist = M.elections.filter(e => e.cd === S.cd && e.status === 'closed').sort((a, b) => b.closed_at - a.closed_at);
+  const hist = M.elections.filter(e => e.cd === S.cd && e.status === 'closed').sort((a, b) => toMs(b.closed_at) - toMs(a.closed_at));
   const strip = $('home-hist-strip');
   if (!hist.length) { strip.classList.add('hidden'); return; }
   strip.classList.remove('hidden');
@@ -362,7 +379,7 @@ function renderCanal() {
   $('wiz-canal-cd').textContent = S.cd;
   const rd = openRound(S.cd), el = openElection(S.cd);
   $('cc-survey-desc').textContent = rd
-    ? `Rodada ${rd.title} aberta — ${Math.max(0, Math.ceil((rd.ends_at - Date.now()) / DAY))} dias restantes. 100% anônima.`
+    ? `Rodada ${rd.title} aberta — ${Math.max(0, Math.ceil((toMs(rd.ends_at) - Date.now()) / DAY))} dias restantes. 100% anônima.`
     : 'Nenhuma rodada aberta no momento.';
   $('cc-vote-desc').textContent = el
     ? `${el.title} — eleja o representante do seu turno.`
@@ -417,7 +434,7 @@ async function checkPontoMat() {
   card.classList.remove('hidden'); card.className = 'emp-card';
   card.innerHTML = `<div class="emp-avatar">${esc(initials(emp.name))}</div><div>
     <div class="emp-name">${esc(emp.name)}</div>
-    <div class="emp-meta">${esc(emp.shift)} · ${esc(emp.sector)} · ${esc(emp.cd)}</div></div>`;
+    <div class="emp-meta">${esc(emp.shift)} · ${esc(emp.sector)} · ${esc(emp.cd)}${emp.cd === REGIONAL ? ' (registrando em ' + esc(S.cd) + ')' : ''}</div></div>`;
   hint.textContent = '✓ Identificado'; hint.className = 'field-hint ok';
   inp.className = 'form-input ok';
   $('pp1-next').disabled = false;
@@ -509,7 +526,7 @@ async function submitPonto() {
       rec = { cd: S.cd, title: subj };
     } else {
       rec = await DB.insert('occurrences', {
-        cd: S.cd, theme_id: S.pTheme, title: subj, description: desc, location: local,
+        cd: empCd(S.pEmp), theme_id: S.pTheme, title: subj, description: desc, location: local,
         author_matricula: S.pEmp.matricula, author_name: S.pEmp.name,
         author_shift: S.pEmp.shift, author_sector: S.pEmp.sector,
         criticality: crit, sla_hours: c.hours, supervisor_id: t.supervisor_id,
@@ -654,7 +671,7 @@ async function submitPesquisa() {
       M.survey_participations = await DB.select('survey_participations');
     } else {
       const part = await DB.insert('survey_participations', {
-        round_id: S.sRound.id, cd: S.cd,
+        round_id: S.sRound.id, cd: empCd(S.sEmp),
         matricula: S.sEmp.matricula, name: S.sEmp.name,
         shift: S.sEmp.shift, job_title: S.sEmp.job_title || '',
       });
@@ -748,7 +765,7 @@ async function confirmVote() {
         && x.voter_matricula === S.vEmp.matricula && x.status === 'valid');
       if (dup) { toast('Esta matrícula já votou.', 'orange'); backToCanal(); return; }
       const rec = await DB.insert('votes', {
-        election_id: S.vElection.id, cd: S.cd,
+        election_id: S.vElection.id, cd: empCd(S.vEmp),
         voter_matricula: S.vEmp.matricula, voter_name: S.vEmp.name, voter_shift: S.vEmp.shift,
         candidate_id: S.vCand, status: 'valid',
         cancelled_at: null, cancelled_by: null, cancel_reason: null,
@@ -809,7 +826,7 @@ function renderOccKpis() {
 }
 function renderOccList() {
   if (S.timer) clearInterval(S.timer);
-  let l = [...pontosOccurrences()].sort((a, b) => b.created_at - a.created_at);
+  let l = [...pontosOccurrences()].sort((a, b) => toMs(b.created_at) - toMs(a.created_at));
   if (S.filter === 'aberto') l = l.filter(o => o.status === 'open');
   if (S.filter === 'vencido') l = l.filter(o => o.status === 'open' && remaining(o) <= 0);
   if (S.filter === 'tratado') l = l.filter(o => o.status === 'done');
@@ -900,7 +917,8 @@ function openTratar(id) {
 async function confirmTratar() {
   const note = $('tratar-note').value.trim();
   if (note.length < 10) return;
-  const patch = { status: 'done', resolved_at: Date.now(), resolved_by: S.user ? S.user.name : 'Supervisor', resolution_note: note };
+  const agora = DB.online ? new Date().toISOString() : Date.now();
+  const patch = { status: 'done', resolved_at: agora, resolved_by: S.user ? S.user.name : 'Supervisor', resolution_note: note };
   await DB.update('occurrences', S._tratarId, patch);
   Object.assign(byId(M.occurrences, S._tratarId), patch);
   closeModal('modal-tratar'); renderPontos(); refreshBanner();
@@ -1087,7 +1105,7 @@ function renderDash() {
 
 /* ══════════ PARTICIPAÇÃO NA PESQUISA ══════════ */
 function roundsInScope() {
-  return M.survey_rounds.filter(r => dashCds().includes(r.cd)).sort((a, b) => a.created_at - b.created_at);
+  return M.survey_rounds.filter(r => dashCds().includes(r.cd)).sort((a, b) => toMs(a.created_at) - toMs(b.created_at));
 }
 function currentRoundForDash() {
   const cds = dashCds();
@@ -1226,7 +1244,7 @@ function renderLogDash() {
   const total = l.length, done = l.filter(o => o.status === 'done').length;
   const open = l.filter(o => o.status === 'open').length;
   const exp = l.filter(o => o.status === 'open' && remaining(o) <= 0).length;
-  const onTime = l.filter(o => o.status === 'done' && o.resolved_at - o.created_at <= o.sla_hours * H).length;
+  const onTime = l.filter(o => o.status === 'done' && toMs(o.resolved_at) - toMs(o.created_at) <= o.sla_hours * H).length;
   $('log-kpis').innerHTML = `
     <div class="kpi-card dark"><div class="kpi-val">${total}</div><div class="kpi-lbl">Total de ocorrências</div></div>
     <div class="kpi-card light"><div class="kpi-val">${open}</div><div class="kpi-lbl">Em aberto</div></div>
@@ -1334,7 +1352,7 @@ function renderSurvDash() {
     Math.round(s.avg / maxAvg * 100), s.avg.toFixed(1))).join('');
 
   // Evolução entre rodadas
-  const rounds = M.survey_rounds.filter(r => cds.includes(r.cd)).sort((a, b) => a.created_at - b.created_at);
+  const rounds = M.survey_rounds.filter(r => cds.includes(r.cd)).sort((a, b) => toMs(a.created_at) - toMs(b.created_at));
   if (rounds.length < 2) {
     $('surv-hist').innerHTML = noData('A comparação aparece a partir da segunda rodada concluída.');
   } else {
@@ -1360,7 +1378,7 @@ function renderSurvDash() {
     }).join('');
   }
 
-  const sugs = res.filter(r => r.suggestion).sort((a, b) => b.created_at - a.created_at);
+  const sugs = res.filter(r => r.suggestion).sort((a, b) => toMs(b.created_at) - toMs(a.created_at));
   $('surv-feed').innerHTML = sugs.length ? sugs.slice(0, 15).map(r =>
     `<div class="sug-item"><div class="sug-dot"></div><div>
       <div class="sug-text">"${esc(r.suggestion)}"</div>
@@ -1372,7 +1390,7 @@ function renderSurvDash() {
 function activeElectionForDash() {
   const cds = dashCds();
   return M.elections.filter(e => cds.includes(e.cd) && e.status === 'open')[0]
-      || M.elections.filter(e => cds.includes(e.cd)).sort((a, b) => b.created_at - a.created_at)[0] || null;
+      || M.elections.filter(e => cds.includes(e.cd)).sort((a, b) => toMs(b.created_at) - toMs(a.created_at))[0] || null;
 }
 function renderVoteDash() {
   const el = activeElectionForDash();
@@ -1425,7 +1443,7 @@ function renderVoteTable() {
   if (q) rows = rows.filter(r => r.emp.matricula.toLowerCase().includes(q) || r.emp.name.toLowerCase().includes(q));
   if (st === 'votou') rows = rows.filter(r => r.vote);
   if (st === 'falta') rows = rows.filter(r => !r.vote);
-  rows.sort((a, b) => (b.vote ? b.vote.created_at : 0) - (a.vote ? a.vote.created_at : 0));
+  rows.sort((a, b) => (b.vote ? toMs(b.vote.created_at) : 0) - (a.vote ? toMs(a.vote.created_at) : 0));
 
   $('vote-tbody').innerHTML = rows.length ? rows.map(r => `
     <tr>
@@ -1488,7 +1506,7 @@ function renderElections() {
     const cands = candidatesOf(el.id), tally = tallyFor(el.id);
     const votes = validVotes(el.id).length;
     const emps = M.employees.filter(e => e.cd === el.cd && e.active !== false).length;
-    const days = Math.floor((Date.now() - el.created_at) / DAY);
+    const days = Math.floor((Date.now() - toMs(el.created_at)) / DAY);
     $('election-current').innerHTML = `<div class="period-card open">
       <div class="period-head">
         <div><div class="period-title">${esc(el.title)}</div>
@@ -1513,7 +1531,7 @@ function renderElections() {
     </div>`;
   }
 
-  const hist = M.elections.filter(e => dashCds().includes(e.cd) && e.status === 'closed').sort((a, b) => b.closed_at - a.closed_at);
+  const hist = M.elections.filter(e => dashCds().includes(e.cd) && e.status === 'closed').sort((a, b) => toMs(b.closed_at) - toMs(a.closed_at));
   $('election-history').innerHTML = hist.length ? hist.map(e => `
     <div class="hist-card">
       <div class="hist-head"><div><div class="hist-title">${esc(e.title)}</div>
@@ -1626,16 +1644,16 @@ function renderRounds() {
     : `<button class="btn-primary shrink sm" onclick="createRound('${esc(cd)}')">+ Abrir rodada</button>`);
 
   if (!rd) {
-    const last = M.survey_rounds.filter(r => r.cd === cd && r.status === 'closed').sort((a, b) => b.closed_at - a.closed_at)[0];
-    const nextIn = last ? Math.max(0, Math.ceil((last.closed_at + 90 * DAY - Date.now()) / DAY)) : null;
+    const last = M.survey_rounds.filter(r => r.cd === cd && r.status === 'closed').sort((a, b) => toMs(b.closed_at) - toMs(a.closed_at))[0];
+    const nextIn = last ? Math.max(0, Math.ceil((toMs(last.closed_at) + 90 * DAY - Date.now()) / DAY)) : null;
     $('round-current').innerHTML = `<div class="period-card"><div class="period-head">
       <div><div class="period-title">Nenhuma rodada aberta</div>
       <div class="period-meta">${esc(cd)}${nextIn !== null ? ' · próxima sugerida em ~' + nextIn + ' dias' : ''}</div></div></div>
       ${nextIn !== null ? `<div class="countdown"><div class="cd-box"><div class="cd-num">${nextIn}</div><div class="cd-lbl">Dias</div></div></div>` : ''}
     </div>`;
   } else {
-    const days = Math.max(0, Math.ceil((rd.ends_at - Date.now()) / DAY));
-    const total = Math.ceil((rd.ends_at - rd.created_at) / DAY);
+    const days = Math.max(0, Math.ceil((toMs(rd.ends_at) - Date.now()) / DAY));
+    const total = Math.ceil((toMs(rd.ends_at) - toMs(rd.created_at)) / DAY);
     const pctTime = Math.min(100, Math.round((total - days) / total * 100));
     const n = M.survey_responses.filter(r => r.round_id === rd.id).length;
     const emps = M.employees.filter(e => e.cd === rd.cd && e.active !== false).length;
@@ -1656,7 +1674,7 @@ function renderRounds() {
     </div>`;
   }
 
-  const hist = M.survey_rounds.filter(r => dashCds().includes(r.cd) && r.status === 'closed').sort((a, b) => b.closed_at - a.closed_at);
+  const hist = M.survey_rounds.filter(r => dashCds().includes(r.cd) && r.status === 'closed').sort((a, b) => toMs(b.closed_at) - toMs(a.closed_at));
   $('round-history').innerHTML = hist.length ? hist.map(r => {
     const res = M.survey_responses.filter(x => x.round_id === r.id);
     const ver = M.survey_theme_versions.find(v => v.version === r.theme_version);
@@ -1674,7 +1692,8 @@ async function createRound(cd) {
   const ver = currentVersion();
   const rec = await DB.insert('survey_rounds', {
     cd, title: `Pesquisa ${quarterLabel(Date.now())}`, status: 'open',
-    ends_at: Date.now() + 90 * DAY, closed_at: null, theme_version: ver ? ver.version : 1,
+    ends_at: DB.online ? new Date(Date.now() + 90 * DAY).toISOString() : Date.now() + 90 * DAY,
+    closed_at: null, theme_version: ver ? ver.version : 1,
   });
   M.survey_rounds.push(rec);
   renderRounds(); renderHome();
@@ -1682,8 +1701,9 @@ async function createRound(cd) {
 }
 function closeRound(id) {
   confirmAction('Encerrar rodada', 'A pesquisa deixará de aceitar respostas. Os resultados ficam preservados no histórico.', async () => {
-    await DB.update('survey_rounds', id, { status: 'closed', closed_at: Date.now() });
-    Object.assign(byId(M.survey_rounds, id), { status: 'closed', closed_at: Date.now() });
+    const agora = DB.online ? new Date().toISOString() : Date.now();
+    await DB.update('survey_rounds', id, { status: 'closed', closed_at: agora });
+    Object.assign(byId(M.survey_rounds, id), { status: 'closed', closed_at: agora });
     renderRounds(); renderHome();
     toast('Rodada encerrada.', 'green');
   });
@@ -2291,10 +2311,10 @@ function removeUser(id) {
 /* -- colaboradores -- */
 function renderCfgEmployees() {
   const q = ($('emp-search').value || '').toLowerCase().trim();
-  let list = M.employees.filter(e => dashCds().includes(e.cd));
+  let list = M.employees.filter(e => dashCds().includes(e.cd) || e.cd === REGIONAL);
   if (q) list = list.filter(e => e.matricula.toLowerCase().includes(q) || e.name.toLowerCase().includes(q));
   list.sort((a, b) => a.cd.localeCompare(b.cd) || a.name.localeCompare(b.name));
-  const total = M.employees.filter(e => dashCds().includes(e.cd)).length;
+  const total = M.employees.filter(e => dashCds().includes(e.cd) || e.cd === REGIONAL).length;
   $('cfg-emp-list').innerHTML = list.length
     ? `<div class="text-muted mb-1">${list.length} de ${total} colaborador${total !== 1 ? 'es' : ''}</div>
        <div class="scroll-list">${list.map(e => `
@@ -2313,7 +2333,9 @@ function openEmpModal(id) {
   const e = id ? byId(M.employees, id) : null;
   $('modal-emp-title').innerHTML = (e ? '✏️ Editar Colaborador' : '🧑‍🏭 Novo Colaborador') +
     ' <button class="modal-close" onclick="closeModal(\'modal-emp\')">✕</button>';
-  fillSelect('emp-cd', scopeCds(), e ? e.cd : currentCd());
+  const cdsEmp = [{ value: REGIONAL, label: '🌎 Regional — atua em todos os CDs' },
+                  ...scopeCds().map(c => ({ value: c, label: c }))];
+  fillSelect('emp-cd', cdsEmp, e ? e.cd : currentCd());
   $('emp-matricula').value = e ? e.matricula : '';
   $('emp-name').value = e ? e.name : '';
   $('emp-shift').value = e ? e.shift : SHIFTS[0];
@@ -2350,7 +2372,8 @@ function removeEmp(id) {
   });
 }
 function openImportModal() {
-  fillSelect('import-cd', scopeCds(), currentCd());
+  fillSelect('import-cd', [{ value: REGIONAL, label: '🌎 Regional — atua em todos os CDs' },
+                           ...scopeCds().map(c => ({ value: c, label: c }))], currentCd());
   $('import-text').value = '';
   $('import-preview').classList.add('hidden');
   $('import-btn').disabled = true;
@@ -2669,15 +2692,15 @@ function restoreVersion(n) {
 function exportCSV() {
   const rows = [['ID', 'CD', 'Tema', 'Assunto', 'Detalhe', 'Local', 'Criticidade', 'Prazo(h)', 'Supervisor',
     'Autor', 'Matrícula', 'Turno', 'Criado em', 'Status', 'Tratado em', 'Tratado por', 'Devolutiva', 'No prazo']];
-  visibleOccurrences().sort((a, b) => b.created_at - a.created_at).forEach(o => {
+  visibleOccurrences().sort((a, b) => toMs(b.created_at) - toMs(a.created_at)).forEach(o => {
     const t = byId(M.log_themes, o.theme_id) || { label: '—' };
     const c = CRIT[o.criticality] || {};
     const s = byId(M.profiles, o.supervisor_id);
-    const onTime = o.status === 'done' ? (o.resolved_at - o.created_at <= o.sla_hours * H ? 'Sim' : 'Não') : '';
+    const onTime = o.status === 'done' ? (toMs(o.resolved_at) - toMs(o.created_at) <= o.sla_hours * H ? 'Sim' : 'Não') : '';
     rows.push([o.id, o.cd, t.label, o.title, o.description, o.location || '', c.label || '', o.sla_hours,
       s ? s.name : '', o.author_name, o.author_matricula, o.author_shift || '',
-      new Date(o.created_at).toLocaleString('pt-BR'), o.status === 'done' ? 'Tratado' : 'Aberto',
-      o.resolved_at ? new Date(o.resolved_at).toLocaleString('pt-BR') : '', o.resolved_by || '',
+      new Date(toMs(o.created_at)).toLocaleString('pt-BR'), o.status === 'done' ? 'Tratado' : 'Aberto',
+      o.resolved_at ? new Date(toMs(o.resolved_at)).toLocaleString('pt-BR') : '', o.resolved_by || '',
       o.resolution_note || '', onTime]);
   });
   const csv = rows.map(r => r.map(c => `"${String(c == null ? '' : c).replace(/"/g, '""')}"`).join(';')).join('\n');
@@ -2759,7 +2782,7 @@ function pdfLogistica() {
   const total = l.length, done = l.filter(o => o.status === 'done').length;
   const open = l.filter(o => o.status === 'open').length;
   const exp = l.filter(o => o.status === 'open' && remaining(o) <= 0).length;
-  const onTime = l.filter(o => o.status === 'done' && o.resolved_at - o.created_at <= o.sla_hours * H).length;
+  const onTime = l.filter(o => o.status === 'done' && toMs(o.resolved_at) - toMs(o.created_at) <= o.sla_hours * H).length;
 
   const ids = uniq(l.map(o => o.theme_id));
   const stats = ids.map(id => {
@@ -2776,7 +2799,7 @@ function pdfLogistica() {
     return { name: u.name, total: all.length, done: d, expired: e, pct: all.length ? Math.round(d / all.length * 100) : 0 };
   }).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
 
-  const linhas = l.sort((a, b) => b.created_at - a.created_at).slice(0, 120).map(o => {
+  const linhas = l.sort((a, b) => toMs(b.created_at) - toMs(a.created_at)).slice(0, 120).map(o => {
     const t = byId(M.log_themes, o.theme_id) || { label: '—' };
     const c = CRIT[o.criticality] || {};
     const sp = byId(M.profiles, o.supervisor_id);
@@ -2869,7 +2892,7 @@ function pdfPesquisa() {
   const sat = Math.round(stats.reduce((a, s) => a + s.sat * s.count, 0) / tc);
   const sorted = [...stats].sort((a, b) => b.avg - a.avg);
 
-  const sugs = res.filter(r => r.suggestion).sort((a, b) => b.created_at - a.created_at);
+  const sugs = res.filter(r => r.suggestion).sort((a, b) => toMs(b.created_at) - toMs(a.created_at));
 
   pdfShell('Resultados da Pesquisa', 'Clima organizacional', `
     <div class="kpis">
@@ -2938,7 +2961,7 @@ function pdfVotacao() {
 
 /* ---- Histórico de eleições ---- */
 function pdfEleicoes() {
-  const hist = M.elections.filter(e => dashCds().includes(e.cd)).sort((a, b) => b.created_at - a.created_at);
+  const hist = M.elections.filter(e => dashCds().includes(e.cd)).sort((a, b) => toMs(b.created_at) - toMs(a.created_at));
   if (!hist.length) { toast('Nenhuma eleição cadastrada.', 'orange'); return; }
   pdfShell('Histórico de Eleições', 'Porta-vozes por período', `
     ${hist.map(e => `
@@ -2953,7 +2976,7 @@ function pdfEleicoes() {
 
 /* ---- Histórico de rodadas ---- */
 function pdfRodadas() {
-  const rounds = M.survey_rounds.filter(r => dashCds().includes(r.cd)).sort((a, b) => b.created_at - a.created_at);
+  const rounds = M.survey_rounds.filter(r => dashCds().includes(r.cd)).sort((a, b) => toMs(b.created_at) - toMs(a.created_at));
   if (!rounds.length) { toast('Nenhuma rodada cadastrada.', 'orange'); return; }
   pdfShell('Rodadas de Pesquisa', 'Histórico trimestral', `
     <table><thead><tr><th>Rodada</th><th>CD</th><th>Período</th><th>Versão</th><th>Respostas</th><th>Adesão</th><th>Média</th><th>Status</th></tr></thead><tbody>
