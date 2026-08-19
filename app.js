@@ -17,6 +17,12 @@ const CRIT = {
 const SCALE = ['Excelente', 'Bom', 'Regular', 'Ruim', 'Péssimo'];
 const SCALE_VAL = [5, 4, 3, 2, 1];
 const ROLE_LABEL = { gerente: 'Gerente', coordenador: 'Coordenador', supervisor: 'Supervisor', admin: 'Administrador' };
+const ROLE_HELP = {
+  gerente:     'Vê os indicadores de <strong>todos os CDs</strong>, mas não conclui tratativas.',
+  coordenador: 'Trata os pontos de atenção <strong>do seu CD</strong> e acompanha os indicadores.',
+  supervisor:  'Trata apenas os pontos <strong>atribuídos a ele</strong> pelos temas que coordena.',
+  admin:       'Configura o sistema, transfere responsáveis e exclui pontos. <strong>Não conclui tratativas.</strong>',
+};
 const SHIFTS = ['1º Turno', '2º Turno', '3º Turno', 'Intermediário', 'Adm'];
 
 /* ══════════ CACHE EM MEMÓRIA ══════════ */
@@ -2222,6 +2228,13 @@ function renderCfgUsers() {
       ${u.id !== 'u0' ? `<button class="btn-icon del" onclick="removeUser('${u.id}')">🗑</button>` : ''}
     </div>`).join('') || noData('Nenhum gestor neste CD.');
 }
+function updateRoleHint() {
+  const box = $('usr-role-hint');
+  if (!box) return;
+  const r = $('usr-role').value;
+  box.querySelector('div').innerHTML = ROLE_HELP[r] || '';
+}
+
 function openUserModal(id) {
   S._editUser = id || null;
   const u = id ? byId(M.profiles, id) : null;
@@ -2234,6 +2247,7 @@ function openUserModal(id) {
   $('usr-pass').placeholder = u && DB.online ? 'deixe em branco para manter' : 'Senha de acesso';
   $('usr-role').value = u ? u.role : 'supervisor';
   $('usr-email').value = u ? (u.email || '') : '';
+  updateRoleHint();
   openModal('modal-user');
 }
 async function submitUser() {

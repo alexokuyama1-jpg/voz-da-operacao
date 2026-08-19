@@ -749,22 +749,23 @@
     <div class="modal-title" id="modal-user-title">👤 Novo Gestor <button class="modal-close" onclick="closeModal('modal-user')">✕</button></div>
     <div class="form-group"><label class="form-label">Nome completo</label><input type="text" class="form-input" id="usr-name" placeholder="Ex: Maria Oliveira"></div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Matrícula (login)</label><input type="text" class="form-input" id="usr-matricula" placeholder="Ex: 10009"></div>
+      <div class="form-group"><label class="form-label">Matrícula</label><input type="text" class="form-input" id="usr-matricula" placeholder="Ex: 10009"></div>
       <div class="form-group"><label class="form-label">Senha</label><input type="text" class="form-input" id="usr-pass" placeholder="Senha de acesso"></div>
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Nível</label>
-        <select class="form-select" id="usr-role">
+        <select class="form-select" id="usr-role" onchange="updateRoleHint()">
           <option value="gerente">Gerente — acompanha</option>
-          <option value="coordenador">Coordenador — acompanha</option>
-          <option value="supervisor" selected>Supervisor — trata pontos</option>
-          <option value="admin">Administrador — acesso total</option>
+          <option value="coordenador">Coordenador — trata os pontos do CD</option>
+          <option value="supervisor" selected>Supervisor — trata os pontos dele</option>
+          <option value="admin">Administrador — configura, transfere e exclui</option>
         </select></div>
       <div class="form-group"><label class="form-label">Centro de Distribuição</label><select class="form-select" id="usr-cd"></select></div>
     </div>
     <div class="form-group"><label class="form-label">E-mail corporativo (login) <span class="req">*</span></label>
       <input type="email" class="form-input" id="usr-email" placeholder="nome.sobrenome@br.lactalis.com">
       <div class="field-hint">É com este e-mail que a pessoa entra no sistema.</div></div>
+    <div class="info-box blue" id="usr-role-hint"><span class="info-box-icon">ℹ️</span><div></div></div>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('modal-user')">Cancelar</button>
       <button class="btn-primary" onclick="submitUser()">✅ Salvar</button>
