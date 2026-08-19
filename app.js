@@ -189,6 +189,10 @@ function scopeCds() {
   if (S.user.cd === REGIONAL || S.user.cd === 'TODOS' || S.user.role === 'admin' || S.user.role === 'gerente') return CDS;
   return [S.user.cd];
 }
+/* CD ativo para novos cadastros. Em Regional, usa o primeiro do escopo. */
+function currentCd() {
+  return (S.dashCd === REGIONAL || S.dashCd === 'TODOS') ? scopeCds()[0] : S.dashCd;
+}
 function dashCds() {
   return (S.dashCd === REGIONAL || S.dashCd === 'TODOS') ? scopeCds() : [S.dashCd];
 }
@@ -199,11 +203,25 @@ function visibleOccurrences() {
 }
 function pontosOccurrences() {
   const cd = S.pontosCd || S.cd;
-  let list = M.occurrences.filter(o => o.cd === cd);
+  const todos = cd === REGIONAL || cd === 'TODOS';
+  let list = M.occurrences.filter(o => todos ? (S.user ? scopeCds().includes(o.cd) : true) : o.cd === cd);
+  // supervisor enxerga apenas o que é dele
   if (S.user && S.user.role === 'supervisor') list = list.filter(o => o.supervisor_id === S.user.id);
   return list;
 }
-const canTreat = o => S.user && (S.user.role === 'admin' || (S.user.role === 'supervisor' && o.supervisor_id === S.user.id));
+/* Quem trata o ponto:
+   · Supervisor — apenas os pontos atribuídos a ele
+   · Coordenador — os pontos do seu CD
+   Gerente e Administrador apenas acompanham (o admin também
+   transfere e exclui, mas não conclui a tratativa). */
+const canTreat = o => {
+  if (!S.user || !o || o.status !== 'open') return false;
+  if (S.user.role === 'supervisor')  return o.supervisor_id === S.user.id;
+  if (S.user.role === 'coordenador') {
+    return S.user.cd === REGIONAL || S.user.cd === 'TODOS' || S.user.cd === o.cd;
+  }
+  return false;
+};
 const isAdmin  = () => S.user && S.user.role === 'admin';
 
 /* ══════════ NAVEGAÇÃO ══════════ */
@@ -756,14 +774,24 @@ async function refreshVoteCache() {
 function renderPontos(f) {
   if (f) S.filter = f;
   if (!S.pontosCd) S.pontosCd = S.cd;
-  const cds = S.user ? scopeCds() : CDS;
+  const cds = S.user
+    ? [{ value: REGIONAL, label: '🌎 Regional' }, ...scopeCds().map(c => ({ value: c, label: c }))]
+    : CDS.map(c => ({ value: c, label: c }));
   fillSelect('pontos-cd', cds, S.pontosCd);
+  const escopo = (S.pontosCd === REGIONAL || S.pontosCd === 'TODOS') ? 'todos os CDs' : S.pontosCd;
   $('pontos-sub').textContent = S.user
-    ? (S.user.role === 'supervisor' ? 'Apenas os pontos sob sua responsabilidade' : `${ROLE_LABEL[S.user.role]} · acompanhamento`)
+    ? (S.user.role === 'supervisor' ? 'Apenas os pontos sob sua responsabilidade · ' + escopo
+       : `${ROLE_LABEL[S.user.role]} · ${escopo}`)
     : 'Acompanhamento dos registros e prazos';
   renderOccKpis(); renderOccList();
 }
-function onPontosCdChange() { S.pontosCd = $('pontos-cd').value; renderPontos(); }
+function onPontosCdChange() {
+  S.pontosCd = $('pontos-cd').value;
+  S.dashCd = S.pontosCd;               // o filtro vale para o sistema inteiro
+  const sel = $('dash-cd'); if (sel) sel.value = S.dashCd;
+  renderPontos();
+  if (S.user) renderDash();
+}
 function filterOcc(f, btn) {
   document.querySelectorAll('#page-pontos .pill-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active'); renderPontos(f);
@@ -882,7 +910,7 @@ async function confirmTratar() {
 /* ---- Trocar responsável (somente admin) ---- */
 function supervisorOptions(excludeId) {
   return M.profiles
-    .filter(u => (u.role === 'supervisor' || u.role === 'admin') && u.active !== false && u.id !== excludeId)
+    .filter(u => ['supervisor', 'coordenador'].includes(u.role) && u.active !== false && u.id !== excludeId)
     .map(u => ({ value: u.id, label: `${u.name} — ${ROLE_LABEL[u.role]} · ${u.cd}` }));
 }
 
@@ -984,6 +1012,7 @@ async function doLogin() {
     const u = await DB.signIn(m, p);
     S.user = u;
     S.dashCd = (u.cd === REGIONAL || u.cd === 'TODOS') ? REGIONAL : u.cd;
+    S.pontosCd = S.dashCd;
     err.classList.add('hidden');
     $('l-user').value = ''; $('l-pass').value = '';
     await loadAll();
@@ -1040,7 +1069,14 @@ function showDashTab(id, btn) {
   $('dtab-' + id).classList.add('active'); btn.classList.add('active');
   renderDash();
 }
-function onDashCdChange() { S.dashCd = $('dash-cd').value; renderDash(); }
+function onDashCdChange() {
+  S.dashCd = $('dash-cd').value;
+  S.pontosCd = S.dashCd;               // o filtro vale para o sistema inteiro
+  const sel = $('pontos-cd'); if (sel) sel.value = S.pontosCd;
+  renderDash();
+  renderPontos();
+  refreshBanner();
+}
 function renderDash() {
   if (!S.user) return;
   renderLogDash(); renderPartDash(); renderVoteDash();
@@ -1223,7 +1259,7 @@ function renderLogDash() {
     i === 0 ? '<span class="badge badge-red">Maior volume</span>' : s.pct >= 80 ? '<span class="badge badge-green">Controlado</span>' : '<span class="badge badge-orange">Atenção</span>',
     Math.round(s.total / max * 100), s.total)).join('');
 
-  const sups = M.profiles.filter(u => u.role === 'supervisor').map(u => {
+  const sups = M.profiles.filter(u => ['supervisor','coordenador'].includes(u.role)).map(u => {
     const all = l.filter(o => o.supervisor_id === u.id);
     const d = all.filter(o => o.status === 'done').length;
     const e = all.filter(o => o.status === 'open' && remaining(o) <= 0).length;
@@ -1436,7 +1472,7 @@ async function confirmCancelVote() {
 
 /* ══════════ ELEIÇÕES ══════════ */
 function renderElections() {
-  const cd = (S.dashCd === REGIONAL || S.dashCd === 'TODOS') ? scopeCds()[0] : S.dashCd;
+  const cd = currentCd();
   const el = openElection(cd);
   const admin = isAdmin();
   $('election-actions').innerHTML = !admin ? '' : (el
@@ -1521,7 +1557,7 @@ function closeElection(id) {
   });
 }
 function openCandModal() {
-  const cd = (S.dashCd === REGIONAL || S.dashCd === 'TODOS') ? scopeCds()[0] : S.dashCd;
+  const cd = currentCd();
   const el = openElection(cd); if (!el) return;
   const taken = candidatesOf(el.id).map(c => c.matricula);
   const opts = M.employees.filter(e => e.cd === cd && e.active !== false && !taken.includes(e.matricula))
@@ -1531,7 +1567,7 @@ function openCandModal() {
   openModal('modal-candidate');
 }
 async function submitCandidate() {
-  const cd = (S.dashCd === REGIONAL || S.dashCd === 'TODOS') ? scopeCds()[0] : S.dashCd;
+  const cd = currentCd();
   const el = openElection(cd); if (!el) return;
   const emp = byId(M.employees, $('cand-employee').value); if (!emp) return;
   const rec = await DB.insert('candidates', {
@@ -1582,7 +1618,7 @@ async function confirmExclude() {
 
 /* ══════════ RODADAS DE PESQUISA ══════════ */
 function renderRounds() {
-  const cd = (S.dashCd === REGIONAL || S.dashCd === 'TODOS') ? scopeCds()[0] : S.dashCd;
+  const cd = currentCd();
   const rd = openRound(cd);
   const admin = isAdmin();
   $('round-actions').innerHTML = !admin ? '' : (rd
@@ -1679,12 +1715,12 @@ function qrUrlFor(q) {
 function renderQrTab() {
   $('qr-base-url').value = M.settings.base_url || '';
   $('qr-logo-url').value = M.settings.logo_url || '';
-  fillSelect('qr-cd', scopeCds());
+  fillSelect('qr-cd', scopeCds(), currentCd());
   renderQrList();
   renderFlyerEditor();
 }
 function renderQrList() {
-  const list = M.qr_codes.filter(q => scopeCds().includes(q.cd));
+  const list = M.qr_codes.filter(q => dashCds().includes(q.cd));
   const hasFlyer = !!(M.settings.flyer_image);
   const PURPOSE = { menu: '📋 Menu completo', ponto: '⚡ Ponto de atenção', pesquisa: '📝 Pesquisa', voto: '🗳️ Votação' };
   $('qr-list').innerHTML = list.length ? list.map(q => {
@@ -1707,7 +1743,7 @@ function renderQrList() {
   }).join('') : emptyBox('📱', 'Nenhum QR Code criado', 'Clique em "+ Novo QR Code" para gerar o primeiro.');
 }
 function openQrModal() {
-  fillSelect('qr-cd', scopeCds());
+  fillSelect('qr-cd', scopeCds(), currentCd());
   $('qr-label').value = ''; $('qr-sector').value = ''; $('qr-purpose').value = 'menu';
   openModal('modal-qr');
 }
@@ -2149,7 +2185,12 @@ function renderConfig() {
 
 /* -- gestores -- */
 function renderCfgUsers() {
-  $('cfg-users-list').innerHTML = M.profiles.map(u => `
+  // respeita o filtro de CD do cabeçalho
+  const cds = dashCds();
+  const vendoTudo = S.dashCd === REGIONAL || S.dashCd === 'TODOS';
+  const lista = M.profiles.filter(u =>
+    vendoTudo || u.cd === S.dashCd || u.cd === REGIONAL || u.cd === 'TODOS');
+  $('cfg-users-list').innerHTML = lista.map(u => `
     <div class="list-item">
       <div class="list-avatar ${u.role}">${esc(initials(u.name))}</div>
       <div class="list-body">
@@ -2159,7 +2200,7 @@ function renderCfgUsers() {
       </div>
       <button class="btn-icon" onclick="openUserModal('${u.id}')">✏️</button>
       ${u.id !== 'u0' ? `<button class="btn-icon del" onclick="removeUser('${u.id}')">🗑</button>` : ''}
-    </div>`).join('');
+    </div>`).join('') || noData('Nenhum gestor neste CD.');
 }
 function openUserModal(id) {
   S._editUser = id || null;
@@ -2250,10 +2291,10 @@ function removeUser(id) {
 /* -- colaboradores -- */
 function renderCfgEmployees() {
   const q = ($('emp-search').value || '').toLowerCase().trim();
-  let list = M.employees.filter(e => scopeCds().includes(e.cd));
+  let list = M.employees.filter(e => dashCds().includes(e.cd));
   if (q) list = list.filter(e => e.matricula.toLowerCase().includes(q) || e.name.toLowerCase().includes(q));
   list.sort((a, b) => a.cd.localeCompare(b.cd) || a.name.localeCompare(b.name));
-  const total = M.employees.filter(e => scopeCds().includes(e.cd)).length;
+  const total = M.employees.filter(e => dashCds().includes(e.cd)).length;
   $('cfg-emp-list').innerHTML = list.length
     ? `<div class="text-muted mb-1">${list.length} de ${total} colaborador${total !== 1 ? 'es' : ''}</div>
        <div class="scroll-list">${list.map(e => `
@@ -2272,7 +2313,7 @@ function openEmpModal(id) {
   const e = id ? byId(M.employees, id) : null;
   $('modal-emp-title').innerHTML = (e ? '✏️ Editar Colaborador' : '🧑‍🏭 Novo Colaborador') +
     ' <button class="modal-close" onclick="closeModal(\'modal-emp\')">✕</button>';
-  fillSelect('emp-cd', scopeCds(), e ? e.cd : scopeCds()[0]);
+  fillSelect('emp-cd', scopeCds(), e ? e.cd : currentCd());
   $('emp-matricula').value = e ? e.matricula : '';
   $('emp-name').value = e ? e.name : '';
   $('emp-shift').value = e ? e.shift : SHIFTS[0];
@@ -2309,7 +2350,7 @@ function removeEmp(id) {
   });
 }
 function openImportModal() {
-  fillSelect('import-cd', scopeCds());
+  fillSelect('import-cd', scopeCds(), currentCd());
   $('import-text').value = '';
   $('import-preview').classList.add('hidden');
   $('import-btn').disabled = true;
@@ -2442,7 +2483,7 @@ async function submitImport() {
 
 /* -- e-mails -- */
 function renderCfgEmails() {
-  const list = M.notify_emails.filter(e => scopeCds().includes(e.cd) || e.cd === REGIONAL || e.cd === 'TODOS');
+  const list = M.notify_emails.filter(e => dashCds().includes(e.cd) || e.cd === REGIONAL || e.cd === 'TODOS');
   $('cfg-emails-list').innerHTML = list.length ? list.map(e => `
     <div class="email-row">
       <div class="email-info"><div class="email-addr">${esc(e.address)}</div>
@@ -2488,9 +2529,13 @@ async function removeEmail(id) {
 /* -- temas logística -- */
 function renderCfgLogThemes() {
   if (!S.draftLogThemes) S.draftLogThemes = JSON.parse(JSON.stringify(M.log_themes));
-  const sups = M.profiles.filter(u => u.role === 'supervisor' || u.role === 'admin');
+  const sups = M.profiles.filter(u => ['supervisor', 'coordenador'].includes(u.role) && u.active !== false);
   const cds  = scopeCds();
-  $('cfg-log-themes').innerHTML = S.draftLogThemes.map((t, i) => {
+  const visiveis = dashCds();
+  $('cfg-log-themes').innerHTML = S.draftLogThemes
+    .map((t, i) => ({ t, i }))
+    .filter(x => visiveis.includes(x.t.cd))
+    .map(({ t, i }) => {
     const c = CRIT[t.criticality] || CRIT.media;
     return `
     <div class="theme-editor-item"><div class="theme-editor-header">
@@ -2510,12 +2555,12 @@ function renderCfgLogThemes() {
       </select>
       <button class="btn-icon del" onclick="removeLogTheme(${i})">🗑</button>
     </div></div>`;
-  }).join('') || noData('Nenhum tema cadastrado.');
+  }).join('') || noData('Nenhum tema cadastrado para este CD.');
 }
 function addLogTheme() {
   if (!S.draftLogThemes) S.draftLogThemes = JSON.parse(JSON.stringify(M.log_themes));
   const sup = M.profiles.find(u => u.role === 'supervisor');
-  S.draftLogThemes.push({ id: 'new_' + Date.now(), label: 'Novo Tema', icon: '📌', cd: scopeCds()[0],
+  S.draftLogThemes.push({ id: 'new_' + Date.now(), label: 'Novo Tema', icon: '📌', cd: currentCd(),
     criticality: 'media', supervisor_id: sup ? sup.id : null, active: true });
   renderCfgLogThemes();
   toast('Tema adicionado. Clique em Salvar para confirmar.', 'blue');
@@ -2724,7 +2769,7 @@ function pdfLogistica() {
     return { label: t.label, total: all.length, done: d, pct: all.length ? Math.round(d / all.length * 100) : 0 };
   }).sort((a, b) => b.total - a.total);
 
-  const sups = M.profiles.filter(u => u.role === 'supervisor').map(u => {
+  const sups = M.profiles.filter(u => ['supervisor','coordenador'].includes(u.role)).map(u => {
     const all = l.filter(o => o.supervisor_id === u.id);
     const d = all.filter(o => o.status === 'done').length;
     const e = all.filter(o => o.status === 'open' && remaining(o) <= 0).length;
@@ -3013,6 +3058,7 @@ function showConnectionState(online, err) {
   if (online && DB.profile) {
     S.user = DB.profile;
     S.dashCd = (S.user.cd === REGIONAL || S.user.cd === 'TODOS') ? REGIONAL : S.user.cd;
+    S.pontosCd = S.dashCd;
   }
 
   try { await loadAll(); } catch (e) { err = err || e.message; }
