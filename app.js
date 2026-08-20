@@ -10,10 +10,12 @@ const CDS = ['CD Carambeí', 'CD Curitiba', 'CD Londrina'];
 const REGIONAL = 'Regional';               // abrange todos os CDs
 const CD_OPTIONS = [REGIONAL, ...CDS];     // usado nos cadastros
 const CRIT = {
-  baixa: { label: 'Baixa', hours: 48, icon: '🟢', badge: 'badge-green',  color: 'var(--green)' },
-  media: { label: 'Média', hours: 72, icon: '🟡', badge: 'badge-orange', color: 'var(--orange)' },
-  alta:  { label: 'Alta',  hours: 96, icon: '🔴', badge: 'badge-red',    color: 'var(--red)' },
+  baixa: { label: 'Baixa', hours: 48, tone: 'green',  badge: 'badge-green',  color: '#16a34a' },
+  media: { label: 'Média', hours: 72, tone: 'amber',  badge: 'badge-orange', color: '#d97706' },
+  alta:  { label: 'Alta',  hours: 96, tone: 'red',    badge: 'badge-red',    color: '#dc2626' },
 };
+/* bolinha colorida no lugar do emoji de semáforo */
+const dot = tone => `<span class="dot dot-${tone}"></span>`;
 const SCALE = ['Excelente', 'Bom', 'Regular', 'Ruim', 'Péssimo'];
 const SCALE_VAL = [5, 4, 3, 2, 1];
 const ROLE_LABEL = { gerente: 'Gerente', coordenador: 'Coordenador', supervisor: 'Supervisor', admin: 'Administrador' };
@@ -24,6 +26,106 @@ const ROLE_HELP = {
   admin:       'Configura o sistema, transfere responsáveis e exclui pontos. <strong>Não conclui tratativas.</strong>',
 };
 const SHIFTS = ['1º Turno', '2º Turno', '3º Turno', 'Intermediário', 'Adm'];
+
+/* ══════════ ÍCONES ══════════ */
+/* Conjunto SVG em traço fino, igual ao usado no hub.
+   Substitui os emojis, que renderizam diferente em cada aparelho. */
+const ICONS = {
+  megafone:   '<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
+  raio:       '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  check:      '<polyline points="20 6 9 17 4 12"/>',
+  checkBox:   '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  doc:        '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+  urna:       '<path d="m9 12 2 2 4-4"/><path d="M5 7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v12H5V7Z"/><path d="M22 19H2"/>',
+  trofeu:     '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+  calendario: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  qr:         '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/>',
+  engrenagem: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  casa:       '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+  lapis:      '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
+  lista:      '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
+  grafico:    '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+  alerta:     '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  relogio:    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  usuario:    '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  usuarios:   '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  sair:       '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+  download:   '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+  impressora: '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
+  lixeira:    '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  troca:      '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
+  mais:       '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  seta:       '<polyline points="9 18 15 12 9 6"/>',
+  setaEsq:    '<polyline points="15 18 9 12 15 6"/>',
+  cadeado:    '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  chave:      '<path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3"/>',
+  local:      '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+  email:      '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
+  imagem:     '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>',
+  upload:     '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
+  filtro:     '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
+  busca:      '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+  info:       '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+  globo:      '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+  ferramenta: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+  escudo:     '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  caixa:      '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+  vassoura:   '<path d="M19 8l-7 7"/><path d="m14 3 7 7"/><path d="M5 21c0-3 2-5 4-6l6-6 3 3-6 6c-1 2-3 4-6 4H5z"/>',
+  caminhao:   '<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
+  martelo:    '<path d="m15 12-8.5 8.5a2.12 2.12 0 1 1-3-3L12 9"/><path d="M17.64 15 22 10.64"/><path d="m20.91 11.7-1.25-1.25c-.6-.6-.93-1.4-.93-2.25v-.86L16.01 4.6a5.56 5.56 0 0 0-3.94-1.64H9l.92.82A6.18 6.18 0 0 1 12 8.4v1.56l2 2h2.47l2.26 1.91"/>',
+  termometro: '<path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>',
+  moeda:      '<circle cx="12" cy="12" r="10"/><path d="M12 6v12"/><path d="M15 9.5a2.5 2.5 0 0 0-2.5-1.5h-1a2 2 0 0 0 0 4h1a2 2 0 0 1 0 4h-1A2.5 2.5 0 0 1 9 14.5"/>',
+  predio:     '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01"/>',
+  balao:      '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/>',
+  subindo:    '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+  descendo:   '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
+  fechar:     '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  salvar:     '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
+};
+
+/* ico('raio')  ·  ico('raio', 18)  ·  ico('raio', 18, '#dc2626') */
+function ico(nome, tam, cor) {
+  const p = ICONS[nome];
+  if (!p) return '';
+  const t = tam || 16;
+  return `<svg class="ic" width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" ` +
+         `stroke="${cor || 'currentColor'}" stroke-width="2" stroke-linecap="round" ` +
+         `stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+}
+
+/* Temas antigos guardam emoji no banco. Este mapa converte para
+   o ícone equivalente sem precisar migrar os dados. */
+const EMOJI_ICO = {
+  '\u{1F9F9}': 'vassoura',  '\u{1F4E6}': 'caixa',      '\u{1F527}': 'ferramenta',
+  '\u{1F6E1}': 'escudo',    '\u{1F528}': 'martelo',    '\u{1F4E2}': 'megafone',
+  '\u{1F69B}': 'caminhao',  '\u{1F4CB}': 'lista',      '\u{1F4CC}': 'local',
+  '\u{1F3E2}': 'predio',    '\u{1F465}': 'usuarios',   '\u{1F4B0}': 'moeda',
+  '\u{1F4C5}': 'calendario','\u{26A1}':  'raio',       '\u{1F4DD}': 'doc',
+  '\u{1F5F3}': 'urna',      '\u{1F3C6}': 'trofeu',     '\u{1F399}': 'megafone',
+  '\u{1F321}': 'termometro','\u{1F4AC}': 'balao',      '\u{2705}':  'check',
+  '\u{1F512}': 'cadeado',   '\u{1F4CA}': 'grafico',    '\u{1F464}': 'usuario',
+  '\u{1F4A1}': 'lampada',   '\u{1F4E7}': 'email',      '\u{23F0}':  'relogio',
+  '\u{1F6A8}': 'alerta',    '\u{26A0}':  'alerta',     '\u{1F4F1}': 'qr',
+};
+/* Temas antigos guardam emoji no banco; o mapa acima converte para o
+   ícone equivalente sem precisar migrar os dados. O seletor de variação
+   (U+FE0F) é removido antes da busca. */
+function temaIco(icone, tam, cor) {
+  const limpo = String(icone || '').replace(/\uFE0F/g, '');
+  const nome = EMOJI_ICO[limpo] || (ICONS[limpo] ? limpo : null);
+  if (nome) return ico(nome, tam, cor);
+  return `<span class="ic-emoji">${esc(icone || '')}</span>`;
+}
+
+/* Ícones disponíveis no editor de temas. */
+const ICO_TEMA = [
+  ['vassoura','Limpeza'], ['caixa','Organização'], ['ferramenta','Equipamentos'],
+  ['escudo','Segurança'], ['martelo','Manutenção'], ['megafone','Comunicação'],
+  ['caminhao','Abastecimento'], ['termometro','Temperatura'], ['predio','Estrutura'],
+  ['usuarios','Pessoas'], ['moeda','Custos'], ['calendario','Escala'],
+  ['relogio','Prazos'], ['doc','Documentos'], ['qr','Tecnologia'],
+  ['local','Local'], ['lista','Geral'], ['alerta','Riscos'],
+];
 
 /* ══════════ CACHE EM MEMÓRIA ══════════ */
 const M = {
@@ -110,7 +212,7 @@ function openModal(id) { $(id).classList.remove('hidden'); }
 function closeModal(id) { $(id).classList.add('hidden'); }
 
 function confirmAction(title, msg, onOk) {
-  $('cfm-title').innerHTML = esc(title) + ' <button class="modal-close" onclick="closeModal(\'modal-confirm\')">✕</button>';
+  $('cfm-title').innerHTML = esc(title) + ' <button class="modal-close" onclick="closeModal(\'modal-confirm\')"></button>';
   $('cfm-msg').textContent = msg;
   const btn = $('cfm-ok');
   btn.onclick = () => { closeModal('modal-confirm'); onOk(); };
@@ -265,54 +367,73 @@ function goPage(id) {
 /* ══════════ HOME ══════════ */
 function renderHome() {
   paintConnLabel();
+  $('hero-cd-label').textContent = S.cd;
   $('home-cd-picker').innerHTML = CDS.map(cd =>
     `<button class="cd-chip ${cd === S.cd ? 'active' : ''}" onclick="setCd('${esc(cd)}')">${esc(cd)}</button>`).join('');
+  // ícones do bloco de ação principal
+  const ai = document.querySelector('.act-ic');
+  if (ai && !ai.innerHTML) ai.innerHTML = ico('lapis', 22);
+  const ag = document.querySelector('.act-go');
+  if (ag && !ag.innerHTML) ag.innerHTML = ico('seta', 18);
   renderStatusCards();
   renderSpokespeople();
   renderHomeHistory();
 }
+
+/* O CD normalmente vem no QR Code; o seletor fica recolhido. */
+function toggleCdPicker() {
+  $('home-cd-picker').classList.toggle('hidden');
+}
+
 function setCd(cd) {
   S.cd = cd;
   S.pontosCd = cd;
+  $('home-cd-picker').classList.add('hidden');
   renderHome();
 }
 
+/* Dois cartões de ação: pesquisa e votação. Mostram o estado
+   atual e só ficam clicáveis quando há rodada ou eleição aberta. */
 function renderStatusCards() {
   const el = openElection(S.cd), rd = openRound(S.cd);
   const emps = M.employees.filter(e => e.cd === S.cd && e.active !== false).length;
-  const open = M.occurrences.filter(o => o.cd === S.cd && o.status === 'open').length;
-  const cards = [];
 
-  if (el) {
-    const voted = validVotes(el.id).length;
-    cards.push(`<div class="status-card open"><div class="sc-icon">🗳️</div><div>
-      <div class="sc-title">Eleição aberta</div>
-      <div class="sc-sub">${voted} de ${emps} já votaram</div></div></div>`);
-  } else {
-    cards.push(`<div class="status-card closed"><div class="sc-icon">🗳️</div><div>
-      <div class="sc-title">Eleição encerrada</div>
-      <div class="sc-sub">Aguardando próxima rodada</div></div></div>`);
-  }
-
+  let pesquisa;
   if (rd) {
-    const days = Math.max(0, Math.ceil((toMs(rd.ends_at) - Date.now()) / DAY));
-    const n = M.survey_responses.filter(r => r.round_id === rd.id).length;
-    cards.push(`<div class="status-card ${days <= 7 ? 'warn' : 'open'}"><div class="sc-icon">📝</div><div>
-      <div class="sc-title">Pesquisa aberta · ${days} dia${days !== 1 ? 's' : ''}</div>
-      <div class="sc-sub">${n} resposta${n !== 1 ? 's' : ''} recebida${n !== 1 ? 's' : ''}</div></div></div>`);
+    const dias = Math.max(0, Math.ceil((toMs(rd.ends_at) - Date.now()) / DAY));
+    pesquisa = `<button class="act-card" onclick="abrirCanal('pesquisa')">
+      <div class="act-card-ic bg-blue">${ico('doc', 18, '#2563eb')}</div>
+      <div class="act-card-t">Pesquisa</div>
+      <div class="act-card-s">Aberta · ${dias} dia${dias !== 1 ? 's' : ''}</div></button>`;
   } else {
-    const last = M.survey_rounds.filter(r => r.cd === S.cd && r.status === 'closed').sort((a, b) => toMs(b.closed_at) - toMs(a.closed_at))[0];
-    const nextIn = last ? Math.max(0, Math.ceil((toMs(last.closed_at) + 90 * DAY - Date.now()) / DAY)) : null;
-    cards.push(`<div class="status-card closed"><div class="sc-icon">📝</div><div>
-      <div class="sc-title">Pesquisa fechada</div>
-      <div class="sc-sub">${nextIn !== null ? 'Próxima em ~' + nextIn + ' dias' : 'Aguardando abertura'}</div></div></div>`);
+    pesquisa = `<div class="act-card off">
+      <div class="act-card-ic bg-blue">${ico('doc', 18, '#94a3b8')}</div>
+      <div class="act-card-t">Pesquisa</div>
+      <div class="act-card-s">Fechada no momento</div></div>`;
   }
 
-  cards.push(`<div class="status-card ${open > 0 ? 'warn' : ''}"><div class="sc-icon">⚡</div><div>
-    <div class="sc-title">${open} ponto${open !== 1 ? 's' : ''} em aberto</div>
-    <div class="sc-sub">${esc(S.cd)}</div></div></div>`);
+  let votacao;
+  if (el) {
+    const n = candidatesOf(el.id).length;
+    const votos = validVotes(el.id).length;
+    votacao = `<button class="act-card" onclick="abrirCanal('voto')">
+      <div class="act-card-ic bg-green">${ico('urna', 18, '#16a34a')}</div>
+      <div class="act-card-t">Votação</div>
+      <div class="act-card-s">${n} candidato${n !== 1 ? 's' : ''}${emps ? ' · ' + Math.round(votos / emps * 100) + '% votou' : ''}</div></button>`;
+  } else {
+    votacao = `<div class="act-card off">
+      <div class="act-card-ic bg-green">${ico('urna', 18, '#94a3b8')}</div>
+      <div class="act-card-t">Votação</div>
+      <div class="act-card-s">Nenhuma eleição aberta</div></div>`;
+  }
 
-  $('home-status-cards').innerHTML = cards.join('');
+  $('home-status-cards').innerHTML = pesquisa + votacao;
+}
+
+/* Atalho da home direto para o canal, pulando a tela de escolha. */
+function abrirCanal(c) {
+  goPage('registrar');
+  setTimeout(() => startCanal(c), 60);
 }
 
 function renderSpokespeople() {
@@ -323,8 +444,9 @@ function renderSpokespeople() {
     const cands = candidatesOf(el.id), tally = tallyFor(el.id);
     const total = Object.values(tally).reduce((a, b) => a + b, 0);
     const max = Math.max(...Object.values(tally), 1);
-    badge.innerHTML = `<span class="badge badge-green">🟢 Eleição em andamento</span>`;
+    badge.innerHTML = `<span class="badge badge-green">Eleição em andamento</span>`;
     sub.textContent = 'Candidatos concorrendo nesta eleição';
+    sub.classList.remove('hidden');
     grid.innerHTML = cands.length ? cands.map(c => {
       const v = tally[c.id] || 0;
       return `<div class="vp-card">
@@ -332,30 +454,31 @@ function renderSpokespeople() {
         <div style="flex:1;min-width:0">
           <div class="vp-name">${esc(c.name)}</div>
           <div class="vp-meta">${esc(c.shift)} · ${esc(c.sector || '')}</div>
-          <div class="vp-stat-row"><div class="vp-votes">🗳️ ${v} voto${v !== 1 ? 's' : ''}</div>
+          <div class="vp-stat-row"><div class="vp-votes">${ico('urna',12)} ${v} voto${v !== 1 ? 's' : ''}</div>
             <div class="vp-pct">${total ? Math.round(v / total * 100) : 0}%</div></div>
           <div class="vote-bar"><div class="vote-bar-fill" style="width:${Math.round(v / max * 100)}%"></div></div>
         </div></div>`;
-    }).join('') : emptyBox('🙋', 'Nenhum candidato cadastrado', 'O gestor precisa adicionar candidatos à eleição.');
+    }).join('') : emptyBox('usuarios', 'Nenhum candidato cadastrado', 'O gestor precisa adicionar candidatos à eleição.');
     return;
   }
 
   const winners = electedOf(S.cd);
   badge.innerHTML = '';
-  sub.textContent = 'Representantes eleitos pela operação';
+  sub.classList.add('hidden');
   grid.innerHTML = winners.length ? winners.map(w =>
     `<div class="vp-card elected">
       <div class="vp-avatar">${esc(initials(w.name))}</div>
       <div style="flex:1;min-width:0">
-        <div class="vp-name">${esc(w.name)} <span class="badge badge-blue">🎙️ Porta-Voz</span></div>
+        <div class="vp-name">${esc(w.name)} <span class="badge badge-blue">Porta-Voz</span></div>
         <div class="vp-meta">${esc(w.shift)} · ${esc(w.sector || '')}</div>
-        <div class="vp-votes">🗳️ ${w.votes} voto${w.votes !== 1 ? 's' : ''}</div>
+        <div class="vp-votes">${ico('urna',12)} ${w.votes} voto${w.votes !== 1 ? 's' : ''}</div>
       </div></div>`).join('')
-    : emptyBox('🎙️', 'Nenhum porta-voz eleito ainda', 'Assim que uma eleição for encerrada, os eleitos aparecem aqui.');
+    : emptyBox('megafone', 'Nenhum porta-voz eleito ainda', 'Assim que uma eleição for encerrada, os eleitos aparecem aqui.');
 }
 
 function emptyBox(icon, title, sub) {
-  return `<div class="empty-state" style="grid-column:1/-1"><div class="ei">${icon}</div>
+  const svg = ICONS[icon] ? ico(icon, 34) : ico('lista', 34);
+  return `<div class="empty-state" style="grid-column:1/-1"><div class="ei">${svg}</div>
     <h4>${esc(title)}</h4><p class="text-muted">${esc(sub)}</p></div>`;
 }
 
@@ -371,7 +494,7 @@ function renderHomeHistory() {
         <div class="hist-meta">${fmtDateFull(e.created_at)} a ${fmtDateFull(e.closed_at)} · ${e.total_votes || 0} votos</div></div>
       </div>
       ${(e.winners || []).map(w => `<div class="winner-row">
-        <span class="winner-medal">🏆</span>
+        <span class="winner-medal">${ico('trofeu', 15)}</span>
         <div><div class="winner-name">${esc(w.name)}</div>
         <div class="winner-meta">${esc(w.shift)} · ${w.votes} voto${w.votes !== 1 ? 's' : ''}</div></div>
       </div>`).join('')}
@@ -430,7 +553,7 @@ async function checkPontoMat() {
   if (!emp) {
     const other = await lookupEmployee(v, null);
     card.classList.remove('hidden'); card.className = 'emp-card err';
-    card.innerHTML = `<div class="emp-avatar">✕</div><div>
+    card.innerHTML = `<div class="emp-avatar"></div><div>
       <div class="emp-name">Matrícula não encontrada</div>
       <div class="emp-meta">${other ? 'Esta matrícula pertence ao ' + esc(other.cd) + '. Troque o CD na tela inicial.' : 'Procure a supervisão para cadastro.'}</div></div>`;
     hint.textContent = ''; inp.className = 'form-input err';
@@ -441,31 +564,34 @@ async function checkPontoMat() {
   card.innerHTML = `<div class="emp-avatar">${esc(initials(emp.name))}</div><div>
     <div class="emp-name">${esc(emp.name)}</div>
     <div class="emp-meta">${esc(emp.shift)} · ${esc(emp.sector)} · ${esc(emp.cd)}${emp.cd === REGIONAL ? ' (registrando em ' + esc(S.cd) + ')' : ''}</div></div>`;
-  hint.textContent = '✓ Identificado'; hint.className = 'field-hint ok';
+  hint.textContent = ' Identificado'; hint.className = 'field-hint ok';
   inp.className = 'form-input ok';
   $('pp1-next').disabled = false;
 }
 
 function setPontoProgress(cur) {
   [0, 1, 2, 3].forEach(i => {
-    const el = $('pstep-' + i);
-    el.className = 'wiz-step' + (i < cur - 1 ? ' done' : i === cur - 1 ? ' active' : '');
-    el.querySelector('.wiz-num').textContent = i < cur - 1 ? '✓' : (i + 1);
+    $('pstep-' + i).className = 'pbar-s' + (i < cur ? ' on' : '');
   });
+  $('pp-step-lbl').textContent = `PASSO ${cur} DE 4`;
 }
 
 function renderPontoThemes() {
   const themes = currentThemes(S.cd);
   const g = $('log-theme-grid');
   if (!themes.length) {
-    g.innerHTML = emptyBox('📋', 'Nenhum tema cadastrado', 'O administrador precisa cadastrar temas para este CD.');
+    g.innerHTML = emptyBox('lista', 'Nenhum tema cadastrado', 'O administrador precisa cadastrar temas para este CD.');
     return;
   }
   g.innerHTML = themes.map(t => {
     const c = CRIT[t.criticality] || CRIT.media;
-    return `<div class="theme-tile ${S.pTheme === t.id ? 'sel' : ''}" onclick="selLogTheme('${t.id}')">
-      <div class="tt-icon">${t.icon}</div><div class="tt-name">${esc(t.label)}</div>
-      <div class="tt-crit ${t.criticality || 'media'}">${c.icon} ${c.hours}h</div></div>`;
+    const sel = S.pTheme === t.id;
+    return `<button class="theme-tile ${sel ? 'sel' : ''}" onclick="selLogTheme('${t.id}')">
+      ${sel ? `<span class="tt-chk">${ico('check', 11, '#fff')}</span>` : ''}
+      <span class="tt-icon">${temaIco(t.icon, 20)}</span>
+      <span class="tt-name">${esc(t.label)}</span>
+      <span class="tt-crit ${t.criticality || 'media'}">${dot(c.tone)} Prazo ${c.hours}h</span>
+    </button>`;
   }).join('');
 }
 
@@ -481,9 +607,8 @@ function selLogTheme(id) {
   box.classList.remove('hidden');
   box.className = 'info-box ' + (t.criticality === 'alta' ? 'red' : t.criticality === 'baixa' ? 'green' : 'orange');
   box.style.marginTop = '1rem';
-  box.innerHTML = `<span class="info-box-icon">${c.icon}</span>
-    <div><strong>${esc(t.label)} — criticidade ${c.label.toLowerCase()}.</strong>
-    Prazo de <strong>${c.hours} horas</strong> para tratativa.
+  box.innerHTML = `<span class="info-box-icon">${dot(c.tone)}</span>
+    <div><strong>${esc(t.label)} — criticidade ${c.label.toLowerCase()}.</strong> Prazo de <strong>${c.hours} horas</strong> para tratativa.
     ${sup ? 'Responsável: <strong>' + esc(sup.name) + '</strong>.' : ''}</div>`;
 }
 
@@ -497,15 +622,15 @@ function pontoStep(n) {
   if (n === 3) {
     const sup = t ? byId(M.profiles, t.supervisor_id) : null;
     $('pp3-badges').innerHTML =
-      `<span class="badge badge-blue">${t ? t.icon : ''} ${esc(t ? t.label : '')}</span>` +
-      `<span class="badge ${c.badge}">${c.icon} ${c.label} · ${c.hours}h</span>` +
-      (sup ? `<span class="badge badge-gray">👤 ${esc(sup.name)}</span>` : '');
+      `<span class="badge badge-blue">${t ? temaIco(t.icon, 14) : ''} ${esc(t ? t.label : '')}</span>` +
+      `<span class="badge ${c.badge}">${dot(c.tone)} ${c.label} · ${c.hours}h</span>` +
+      (sup ? `<span class="badge badge-gray">${ico('usuario',12)} ${esc(sup.name)}</span>` : '');
   }
   if (n === 4) {
     const sup = t ? byId(M.profiles, t.supervisor_id) : null;
     $('pp4-author').textContent  = `${S.pEmp.name} (${S.pEmp.matricula})`;
-    $('pp4-tema').textContent    = `${t.icon} ${t.label}`;
-    $('pp4-crit').textContent    = `${c.icon} ${c.label} — prazo de ${c.hours} horas (definido pelo tema)`;
+    $('pp4-tema').textContent    = `${temaIco(t.icon, 15)} ${t.label}`;
+    $('pp4-crit').textContent    = `${dot(c.tone)} ${c.label} — prazo de ${c.hours} horas (definido pelo tema)`;
     $('pp4-sup').textContent     = sup ? `${sup.name} (${ROLE_LABEL[sup.role]})` : 'Não definido';
     $('pp4-subject').textContent = $('pp-subject').value.trim();
     $('pp4-desc').textContent    = $('pp-desc').value.trim();
@@ -578,7 +703,7 @@ async function checkSurvMat() {
   const card = $('sv-emp-card'), hint = $('sv-mat-hint'), inp = $('sv-matricula');
   const fail = (title, msg) => {
     card.classList.remove('hidden'); card.className = 'emp-card err';
-    card.innerHTML = `<div class="emp-avatar">✕</div><div><div class="emp-name">${esc(title)}</div>
+    card.innerHTML = `<div class="emp-avatar"></div><div><div class="emp-name">${esc(title)}</div>
       <div class="emp-meta">${esc(msg)}</div></div>`;
     hint.textContent = ''; inp.className = 'form-input err';
     $('sv1-next').disabled = true; S.sEmp = null;
@@ -597,7 +722,7 @@ async function checkSurvMat() {
   card.innerHTML = `<div class="emp-avatar">${esc(initials(emp.name))}</div><div>
     <div class="emp-name">${esc(emp.name)}</div>
     <div class="emp-meta">${esc(emp.job_title || emp.sector)} · ${esc(emp.shift)}</div></div>`;
-  hint.textContent = '✓ Identificado'; hint.className = 'field-hint ok';
+  hint.textContent = ' Identificado'; hint.className = 'field-hint ok';
   inp.className = 'form-input ok';
   $('sv1-next').disabled = false;
 }
@@ -606,10 +731,15 @@ function survThemes() {
   return v ? v.themes : [];
 }
 function renderSurvThemeGrid() {
-  $('surv-theme-grid').innerHTML = survThemes().map(t =>
-    `<div class="theme-tile ${S.sSel.includes(t.id) ? 'sel' : ''}" onclick="toggleSurvTheme('${t.id}')">
-      <div class="tt-icon">${t.icon}</div><div class="tt-name">${esc(t.label)}</div>
-      <div class="tt-sup">${(t.questions || []).length} perguntas</div></div>`).join('');
+  $('surv-theme-grid').innerHTML = survThemes().map(t => {
+    const sel = S.sSel.includes(t.id);
+    return `<button class="theme-tile ${sel ? 'sel' : ''}" onclick="toggleSurvTheme('${t.id}')">
+      ${sel ? `<span class="tt-chk">${ico('check', 11, '#fff')}</span>` : ''}
+      <span class="tt-icon">${temaIco(t.icon, 20)}</span>
+      <span class="tt-name">${esc(t.label)}</span>
+      <span class="tt-sup">${(t.questions || []).length} perguntas</span>
+    </button>`;
+  }).join('');
   $('surv-start-btn').disabled = S.sSel.length === 0;
 }
 function toggleSurvTheme(id) {
@@ -618,11 +748,11 @@ function toggleSurvTheme(id) {
   renderSurvThemeGrid();
 }
 function buildSurvProgress() {
-  const steps = [{ label: 'Temas' }, ...S.sActive.map(t => ({ label: t.label })), { label: 'Sugestão' }];
-  $('prog-pesquisa').innerHTML = steps.map((s, i) =>
-    `<div class="wiz-step ${i < S.sStep ? 'done' : i === S.sStep ? 'active' : ''}">
-      <div class="wiz-num">${i < S.sStep ? '✓' : i + 1}</div>
-      <div class="wiz-label">${esc(s.label)}</div></div>`).join('');
+  const total = 2 + S.sActive.length;   // identificação + temas + sugestão
+  $('prog-pesquisa').innerHTML =
+    `<div class="pbar">${Array.from({ length: total }, (_, i) =>
+      `<div class="pbar-s ${i <= S.sStep ? 'on' : ''}"></div>`).join('')}</div>
+     <div class="step-lbl">PASSO ${Math.min(S.sStep + 1, total)} DE ${total}</div>`;
 }
 function startPesquisa() {
   S.sActive = survThemes().filter(t => S.sSel.includes(t.id));
@@ -630,7 +760,7 @@ function startPesquisa() {
 }
 function renderSurvQ() {
   const t = S.sActive[S.sStep - 1];
-  $('surv-q-icon').textContent = t.icon;
+  $('surv-q-icon').innerHTML = temaIco(t.icon, 22);
   $('surv-q-sub').textContent = `Tema ${S.sStep} de ${S.sActive.length}`;
   $('surv-q-title').textContent = t.label;
   $('surv-questions').innerHTML = (t.questions || []).map((q, qi) =>
@@ -712,7 +842,7 @@ async function checkVoteMat() {
   const card = $('vt-emp-card'), hint = $('vt-mat-hint'), inp = $('vt-matricula');
   const fail = (title, msg) => {
     card.classList.remove('hidden'); card.className = 'emp-card err';
-    card.innerHTML = `<div class="emp-avatar">✕</div><div><div class="emp-name">${esc(title)}</div>
+    card.innerHTML = `<div class="emp-avatar"></div><div><div class="emp-name">${esc(title)}</div>
       <div class="emp-meta">${esc(msg)}</div></div>`;
     hint.textContent = ''; inp.className = 'form-input err';
     $('vt1-next').disabled = true; S.vEmp = null;
@@ -731,7 +861,7 @@ async function checkVoteMat() {
   card.innerHTML = `<div class="emp-avatar">${esc(initials(emp.name))}</div><div>
     <div class="emp-name">${esc(emp.name)}</div>
     <div class="emp-meta">${esc(emp.shift)} · ${esc(emp.sector)}</div></div>`;
-  hint.textContent = '✓ Identificado'; hint.className = 'field-hint ok';
+  hint.textContent = ' Identificado'; hint.className = 'field-hint ok';
   inp.className = 'form-input ok';
   $('vt1-next').disabled = false;
 }
@@ -746,7 +876,7 @@ function votoStep(n) {
         <div><div class="cand-name">${esc(c.name)}</div>
         <div class="cand-meta">${esc(c.shift)} · ${esc(c.sector || '')}</div></div>
         <div class="cand-arrow">›</div></button>`).join('')
-      : emptyBox('🙋', 'Nenhum candidato', 'Procure a supervisão.');
+      : emptyBox('usuarios', 'Nenhum candidato', 'Procure a supervisão.');
   }
   if (n === 3) {
     const c = byId(M.candidates, S.vCand);
@@ -798,7 +928,7 @@ function renderPontos(f) {
   if (f) S.filter = f;
   if (!S.pontosCd) S.pontosCd = S.cd;
   const cds = S.user
-    ? [{ value: REGIONAL, label: '🌎 Regional' }, ...scopeCds().map(c => ({ value: c, label: c }))]
+    ? [{ value: REGIONAL, label: 'Regional' }, ...scopeCds().map(c => ({ value: c, label: c }))]
     : CDS.map(c => ({ value: c, label: c }));
   fillSelect('pontos-cd', cds, S.pontosCd);
   const escopo = (S.pontosCd === REGIONAL || S.pontosCd === 'TODOS') ? 'todos os CDs' : S.pontosCd;
@@ -827,8 +957,8 @@ function renderOccKpis() {
   $('occ-kpis').innerHTML = `
     <div class="occ-kpi"><div class="kv" style="color:var(--blue2)">${l.length}</div><div class="kl">Total</div></div>
     <div class="occ-kpi"><div class="kv" style="color:var(--blue2)">${open}</div><div class="kl">Em aberto</div></div>
-    <div class="occ-kpi"><div class="kv" style="color:var(--red)">${exp}</div><div class="kl">⚠️ Vencidos</div></div>
-    <div class="occ-kpi"><div class="kv" style="color:var(--green)">${done}</div><div class="kl">✓ Tratados</div></div>`;
+    <div class="occ-kpi"><div class="kv" style="color:var(--red)">${exp}</div><div class="kl">Vencidos</div></div>
+    <div class="occ-kpi"><div class="kv" style="color:var(--green)">${done}</div><div class="kl">Tratados</div></div>`;
 }
 function renderOccList() {
   if (S.timer) clearInterval(S.timer);
@@ -839,51 +969,50 @@ function renderOccList() {
   $('occ-count').textContent = l.length + ' registro' + (l.length !== 1 ? 's' : '');
 
   if (!l.length) {
-    $('occ-list').innerHTML = emptyBox(S.filter === 'tratado' ? '✅' : '📋',
+    $('occ-list').innerHTML = emptyBox(S.filter === 'tratado' ? 'check' : 'lista',
       'Nenhum ponto ' + (S.filter === 'tratado' ? 'tratado' : S.filter === 'vencido' ? 'vencido' : S.filter === 'aberto' ? 'em aberto' : 'registrado'),
       S.filter === 'todos' ? 'Registre um novo ponto de atenção para começar.' : 'Nenhum ponto nesta categoria.');
     return;
   }
 
   $('occ-list').innerHTML = l.map(o => {
-    const t = byId(M.log_themes, o.theme_id) || { icon: '📋', label: '—' };
+    const t = byId(M.log_themes, o.theme_id) || { icon: '', label: '—' };
     const c = CRIT[o.criticality] || CRIT.baixa;
     const sup = byId(M.profiles, o.supervisor_id);
     const rem = remaining(o);
     let tc, tt;
-    if (o.status === 'done') { tc = 't-done'; tt = '✓ Tratado'; }
-    else if (rem <= 0) { tc = 't-expired'; tt = '⚠️ VENCIDO!'; }
-    else if (rem < 12 * H) { tc = 't-warn'; tt = '⏰ ' + fmtTimer(rem); }
-    else { tc = 't-ok'; tt = '⏱ ' + fmtTimer(rem); }
+    if (o.status === 'done') { tc = 't-done'; tt = 'Tratado'; }
+    else if (rem <= 0) { tc = 't-expired'; tt = 'VENCIDO'; }
+    else if (rem < 12 * H) { tc = 't-warn'; tt = fmtTimer(rem); }
+    else { tc = 't-ok'; tt = fmtTimer(rem); }
     const cc = o.status === 'done' ? 'c-done' : rem <= 0 ? 'c-expired' : rem < 12 * H ? 'c-warn' : 'c-open';
     const note = o.status === 'done' && o.resolution_note;
     return `<div class="occ-wrap">
       <div class="occ-card ${cc} ${note ? 'has-note' : ''}" id="card-${o.id}">
         <div class="occ-inner">
-          <div class="occ-icon">${t.icon}</div>
+          <div class="occ-icon">${temaIco(t.icon, 18)}</div>
           <div class="occ-body">
             <div class="occ-theme-label"><span>${esc(t.label)}</span>
-              <span class="badge ${c.badge}">${c.icon} ${c.label} · ${c.hours}h</span>
-              ${o.reassigned_at ? `<span class="badge badge-purple" title="${esc(o.reassign_reason || '')}">🔄 Transferido</span>` : ''}</div>
+              <span class="badge ${c.badge}">${dot(c.tone)} ${c.label} · ${c.hours}h</span>
+              ${o.reassigned_at ? `<span class="badge badge-purple" title="${esc(o.reassign_reason || '')}">Transferido</span>` : ''}</div>
             <div class="occ-title">${esc(o.title)}</div>
             <div class="occ-desc">${esc(o.description)}</div>
             <div class="occ-meta">
-              <span class="occ-author">🙋 ${esc(o.author_name)} (${esc(o.author_matricula)})</span>
-              ${o.location ? `<span class="occ-place">📍 ${esc(o.location)}</span>` : ''}
-              ${sup ? `<span class="occ-sup">👤 ${esc(sup.name)}</span>` : ''}
-              <span class="occ-date">📅 ${fmtDate(o.created_at)}</span>
+              <span class="occ-author">${ico('usuario',12)} ${esc(o.author_name)} (${esc(o.author_matricula)})</span>
+              ${o.location ? `<span class="occ-place">${ico('local',12)} ${esc(o.location)}</span>` : ''}
+              ${sup ? `<span class="occ-sup">${ico('usuario',12)} ${esc(sup.name)}</span>` : ''}
+              <span class="occ-date">${ico('calendario',12)} ${fmtDate(o.created_at)}</span>
               <span class="occ-timer ${tc}" id="timer-${o.id}">${tt}</span>
             </div>
           </div>
         </div>
         <div class="occ-actions">
-          ${o.status === 'open'
-            ? (canTreat(o) ? `<button class="btn-tratar" onclick="openTratar('${o.id}')">✓ Tratar</button>`
+          ${o.status === 'open'? (canTreat(o) ? `<button class="btn-tratar" onclick="openTratar('${o.id}')"> Tratar</button>`
                            : `<span class="badge badge-gray">Aguardando</span>`)
-            : `<span class="badge badge-green">✓ Concluído</span>`}
+            : `<span class="badge badge-green"> Concluído</span>`}
           ${isAdmin() ? `<div class="admin-acts">
-            ${o.status === 'open' ? `<button class="btn-icon" title="Trocar responsável" onclick="openReassign('${o.id}')">🔄</button>` : ''}
-            <button class="btn-icon del" title="Excluir ponto" onclick="openDeleteOcc('${o.id}')">🗑</button>
+            ${o.status === 'open' ? `<button class="btn-icon" title="Trocar responsável" onclick="openReassign('${o.id}')"></button>` : ''}
+            <button class="btn-icon del" title="Excluir ponto" onclick="openDeleteOcc('${o.id}')"></button>
           </div>` : ''}
         </div>
       </div>
@@ -902,18 +1031,18 @@ function startTimers() {
       if (!el) return;
       const rem = remaining(o);
       const note = '';
-      if (rem <= 0) { el.className = 'occ-timer t-expired'; el.textContent = '⚠️ VENCIDO!'; if (card) card.className = 'occ-card c-expired' + note; refreshBanner(); }
-      else if (rem < 12 * H) { el.className = 'occ-timer t-warn'; el.textContent = '⏰ ' + fmtTimer(rem); if (card) card.className = 'occ-card c-warn' + note; }
-      else { el.className = 'occ-timer t-ok'; el.textContent = '⏱ ' + fmtTimer(rem); }
+      if (rem <= 0) { el.className = 'occ-timer t-expired'; el.textContent = 'VENCIDO'; if (card) card.className = 'occ-card c-expired' + note; refreshBanner(); }
+      else if (rem < 12 * H) { el.className = 'occ-timer t-warn'; el.textContent = fmtTimer(rem); if (card) card.className = 'occ-card c-warn' + note; }
+      else { el.className = 'occ-timer t-ok'; el.textContent = fmtTimer(rem); }
     });
   }, 1000);
 }
 function openTratar(id) {
   const o = byId(M.occurrences, id); if (!o) return;
   S._tratarId = id;
-  const t = byId(M.log_themes, o.theme_id) || { icon: '📋', label: '—' };
+  const t = byId(M.log_themes, o.theme_id) || { icon: '', label: '—' };
   const c = CRIT[o.criticality] || CRIT.baixa;
-  $('tratar-preview').innerHTML = `<div class="cb-label">${esc(t.label)} · ${c.icon} ${c.label}</div>
+  $('tratar-preview').innerHTML = `<div class="cb-label">${esc(t.label)} · ${dot(c.tone)} ${c.label}</div>
     <div style="font-weight:700;color:var(--blue);margin:3px 0">${esc(o.title)}</div>
     <div style="font-size:.85rem;color:var(--text2)">${esc(o.description)}</div>`;
   $('tratar-note').value = ''; $('tratar-char').textContent = '0 / 300'; $('tratar-btn').disabled = true;
@@ -941,7 +1070,7 @@ function supervisorOptions(excludeId) {
 function openReassign(id) {
   const o = byId(M.occurrences, id); if (!o) return;
   S._reassignId = id;
-  const t = byId(M.log_themes, o.theme_id) || { icon: '📋', label: '—' };
+  const t = byId(M.log_themes, o.theme_id) || { icon: '', label: '—' };
   const atual = byId(M.profiles, o.supervisor_id);
   $('ra-preview').innerHTML = `<div class="cb-label">${esc(t.label)}</div>
     <div style="font-weight:700;color:var(--blue);margin:3px 0">${esc(o.title)}</div>
@@ -990,7 +1119,7 @@ async function confirmReassign() {
 function openDeleteOcc(id) {
   const o = byId(M.occurrences, id); if (!o) return;
   S._delOccId = id;
-  const t = byId(M.log_themes, o.theme_id) || { icon: '📋', label: '—' };
+  const t = byId(M.log_themes, o.theme_id) || { icon: '', label: '—' };
   $('do-preview').innerHTML = `<div class="cb-label">${esc(t.label)} · ${fmtDate(o.created_at)}</div>
     <div style="font-weight:700;color:var(--blue);margin:3px 0">${esc(o.title)}</div>
     <div style="font-size:.85rem;color:var(--text2)">${esc(o.description)}</div>
@@ -1067,23 +1196,22 @@ async function doLogout() {
 }
 function buildDashTabs() {
   const tabs = [
-    { id: 'logistica',   label: '⚡ Logística',   roles: ['gerente', 'coordenador', 'supervisor', 'admin'] },
-    { id: 'participacao',label: '✅ Participação', roles: ['gerente', 'coordenador', 'supervisor', 'admin'] },
-    { id: 'pesquisa',    label: '📝 Resultados',  roles: ['admin'] },
-    { id: 'votos',     label: '🗳️ Votação',      roles: ['gerente', 'coordenador', 'supervisor', 'admin'] },
-    { id: 'eleicoes',  label: '🏆 Eleições',     roles: ['gerente', 'coordenador', 'admin'] },
-    { id: 'rodadas',   label: '📅 Rodadas',      roles: ['gerente', 'coordenador', 'admin'] },
-    { id: 'qrcode',    label: '📱 QR Codes',     roles: ['coordenador', 'admin'] },
-    { id: 'config',    label: '⚙️ Configurações', roles: ['admin'] },
+    { id: 'logistica',    ico: 'raio',       label: 'Logística',     roles: ['gerente', 'coordenador', 'supervisor', 'admin'] },
+    { id: 'participacao', ico: 'checkBox',   label: 'Participação',  roles: ['gerente', 'coordenador', 'supervisor', 'admin'] },
+    { id: 'pesquisa',     ico: 'doc',        label: 'Resultados',    roles: ['admin'] },
+    { id: 'votos',        ico: 'urna',       label: 'Votação',       roles: ['gerente', 'coordenador', 'supervisor', 'admin'] },
+    { id: 'eleicoes',     ico: 'trofeu',     label: 'Eleições',      roles: ['gerente', 'coordenador', 'admin'] },
+    { id: 'rodadas',      ico: 'calendario', label: 'Rodadas',       roles: ['gerente', 'coordenador', 'admin'] },
+    { id: 'qrcode',       ico: 'qr',         label: 'QR Codes',      roles: ['coordenador', 'admin'] },
+    { id: 'config',       ico: 'engrenagem', label: 'Configurações', roles: ['admin'] },
   ].filter(t => t.roles.includes(S.user.role));
   $('dash-tabs').innerHTML = tabs.map((t, i) =>
-    `<button class="dash-tab ${i === 0 ? 'active' : ''}" onclick="showDashTab('${t.id}',this)">${t.label}</button>`).join('');
+    `<button class="dash-tab ${i === 0 ? 'active' : ''}" onclick="showDashTab('${t.id}',this)">${ico(t.ico, 15)}${t.label}</button>`).join('');
   document.querySelectorAll('.dash-panel').forEach(p => p.classList.remove('active'));
   if (tabs.length) $('dtab-' + tabs[0].id).classList.add('active');
-  const veTudo = S.user.cd === REGIONAL || S.user.cd === 'TODOS'
-              || S.user.role === 'admin' || S.user.role === 'gerente';
+  const veTudo = S.user.cd === REGIONAL || S.user.cd === 'TODOS'|| S.user.role === 'admin' || S.user.role === 'gerente';
   const cds = veTudo
-    ? [{ value: REGIONAL, label: '🌎 Regional — todos os CDs' }, ...CDS.map(c => ({ value: c, label: c }))]
+    ? [{ value: REGIONAL, label: 'Regional — todos os CDs' }, ...CDS.map(c => ({ value: c, label: c }))]
     : [{ value: S.user.cd, label: S.user.cd }];
   fillSelect('dash-cd', cds, S.dashCd);
 }
@@ -1140,7 +1268,7 @@ function renderPartDash() {
     <div class="kpi-card light"><div class="kpi-val" style="color:var(--red)">${faltam}</div><div class="kpi-lbl">Faltam participar</div></div>
     <div class="kpi-card light"><div class="kpi-val">${emps.length}</div><div class="kpi-lbl">Colaboradores ativos</div></div>
     <div class="kpi-card light"><div class="kpi-val">${pct}%</div><div class="kpi-lbl">Adesão</div></div>
-    <div class="kpi-card light"><div class="kpi-val sm">${rd.status === 'open' ? '🟢 Aberta' : '🔒 Encerrada'}</div><div class="kpi-lbl">${esc(rd.title)}</div></div>`;
+    <div class="kpi-card light"><div class="kpi-val sm">${rd.status === 'open' ? 'Aberta' : 'Encerrada'}</div><div class="kpi-lbl">${esc(rd.title)}</div></div>`;
 
   $('part-sub').textContent = `${esc(rd.title)} · ${rounds.length} rodada${rounds.length !== 1 ? 's' : ''} no histórico`;
 
@@ -1154,7 +1282,7 @@ function renderPartDash() {
     const n = M.survey_participations.filter(p => p.round_id === r.id).length;
     const base = M.employees.filter(e => e.cd === r.cd && e.active !== false).length;
     const p = base ? Math.round(n / base * 100) : 0;
-    return rankRow(r.status === 'open' ? '🟢' : '🔒', esc(r.title),
+    return rankRow(r.status === 'open' ? '' : '', esc(r.title),
       `<span class="badge ${p >= 70 ? 'badge-green' : p >= 40 ? 'badge-orange' : 'badge-red'}">${p}%</span>`,
       p, `${n}/${base}`);
   }).join('') : noData('Sem histórico ainda.');
@@ -1193,7 +1321,7 @@ function renderPartTable() {
       <td style="font-size:12px;color:var(--text2)">${esc(r.emp.job_title || '—')}</td>
       <td style="font-size:12px;color:var(--text2)">${esc(r.emp.shift)}</td>
       <td style="font-size:12px;color:var(--text3);white-space:nowrap">${r.emp.admission_date ? fmtDateISO(r.emp.admission_date) : '—'}</td>
-      <td>${r.part ? '<span class="badge badge-green">✓ Sim</span>' : '<span class="badge badge-red">✗ Não</span>'}</td>
+      <td>${r.part ? '<span class="badge badge-green">Sim</span>' : '<span class="badge badge-red">Não</span>'}</td>
       <td><div style="display:flex;align-items:center;gap:8px">
         <div style="flex:1;min-width:52px"><div class="rank-bar-bg"><div class="rank-bar-fill" style="width:${hp}%"></div></div></div>
         <span style="font-size:12px;font-weight:700;color:${hp >= 70 ? 'var(--green)' : hp >= 40 ? 'var(--orange)' : 'var(--red)'};white-space:nowrap">${h.done}/${h.total}</span>
@@ -1237,6 +1365,35 @@ function donut(pct, title, sub, extra) {
     </svg>
     <div class="donut-info"><div class="dn">${title}</div><div class="ds">${sub}</div>${extra || ''}</div></div>`;
 }
+/* Gráfico de barras com eixo, linhas de referência e valor sobre
+   a barra — em vez de barras soltas sem escala. */
+const BAR_TONES = ['#1e3a8a', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'];
+
+function barChart(itens, opts) {
+  const o = opts || {};
+  if (!itens.length) return noData(o.vazio || 'Sem dados ainda.');
+  const max = Math.max(...itens.map(i => i.valor), 1);
+  const topo = o.escala || Math.ceil(max / 5) * 5 || 5;
+  const marcas = [topo, topo * 0.75, topo * 0.5, topo * 0.25, 0];
+
+  return `<div class="plot">
+    <div class="plot-grid">
+      ${marcas.map((m, i) => `
+        <div class="plot-line" style="top:${i * 25}%"></div>
+        <div class="plot-y" style="top:${i * 25}%">${o.decimal ? m.toFixed(1) : Math.round(m)}</div>`).join('')}
+    </div>
+    <div class="plot-bars">
+      ${itens.map((it, i) => `
+        <div class="plot-col">
+          <div class="plot-bar" style="height:${Math.max(2, it.valor / topo * 100)}%;background:${it.cor || BAR_TONES[i % BAR_TONES.length]}">
+            <span class="plot-num">${o.decimal ? it.valor.toFixed(1) : it.valor}</span>
+          </div>
+          <div class="plot-lbl">${it.rotulo}</div>
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
 function rankRow(n, name, badge, barPct, score) {
   return `<div class="rank-row"><div class="rank-num">${n}</div>
     <div class="rank-body"><div class="rank-name"><span>${name}</span>${badge || ''}</div>
@@ -1250,17 +1407,53 @@ function renderLogDash() {
   const total = l.length, done = l.filter(o => o.status === 'done').length;
   const open = l.filter(o => o.status === 'open').length;
   const exp = l.filter(o => o.status === 'open' && remaining(o) <= 0).length;
+  const hoje = l.filter(o => o.status === 'open' && remaining(o) > 0 && remaining(o) < 24 * H).length;
   const onTime = l.filter(o => o.status === 'done' && toMs(o.resolved_at) - toMs(o.created_at) <= o.sla_hours * H).length;
+  const tempoMedio = done
+    ? Math.round(l.filter(o => o.status === 'done')
+        .reduce((a, o) => a + (toMs(o.resolved_at) - toMs(o.created_at)), 0) / done / H)
+    : 0;
+
+  /* Hierarquia: o número que exige ação vem primeiro e maior.
+     Os demais recuam para uma faixa secundária. */
   $('log-kpis').innerHTML = `
-    <div class="kpi-card dark"><div class="kpi-val">${total}</div><div class="kpi-lbl">Total de ocorrências</div></div>
-    <div class="kpi-card light"><div class="kpi-val">${open}</div><div class="kpi-lbl">Em aberto</div></div>
-    <div class="kpi-card light"><div class="kpi-val" style="color:var(--green)">${done}</div><div class="kpi-lbl">Tratadas</div></div>
-    <div class="kpi-card light"><div class="kpi-val" style="color:var(--red)">${exp}</div><div class="kpi-lbl">Vencidas</div></div>
-    <div class="kpi-card light"><div class="kpi-val">${done ? Math.round(onTime / done * 100) : 0}%</div><div class="kpi-lbl">Tratadas no prazo</div></div>`;
+    <div class="hero-row">
+      <div class="hero-alert ${exp ? 'on' : 'off'}">
+        <div class="hero-ic">${ico(exp ? 'alerta' : 'check', 19, exp ? '#dc2626' : '#16a34a')}</div>
+        <div class="hero-tx">
+          <div class="hero-v">${exp}</div>
+          <div class="hero-l">${exp === 1 ? 'ponto com prazo vencido' : 'pontos com prazo vencido'}</div>
+        </div>
+        ${exp ? `<button class="hero-act" onclick="irParaVencidos()">Ver agora ${ico('seta', 12)}</button>` : ''}
+      </div>
+      <div class="hero-mini">
+        <div class="hero-mv">${open}</div>
+        <div class="hero-ml">Em aberto</div>
+        ${hoje ? `<div class="hero-trend warn">${ico('relogio', 11)} ${hoje} vence${hoje > 1 ? 'm' : ''} em 24h</div>` : ''}
+      </div>
+      <div class="hero-mini">
+        <div class="hero-mv">${total ? Math.round(done / total * 100) : 0}%</div>
+        <div class="hero-ml">Taxa de resolução</div>
+        <div class="hero-trend ${done && onTime / done >= 0.8 ? 'up' : 'warn'}">
+          ${ico(done && onTime / done >= 0.8 ? 'subindo' : 'descendo', 11)}
+          ${done ? Math.round(onTime / done * 100) : 0}% no prazo</div>
+      </div>
+    </div>
+
+    <div class="mini-row">
+      <div class="mini-c"><div class="mini-ic bg-blue">${ico('doc', 15, '#2563eb')}</div>
+        <div><div class="mini-v">${total}</div><div class="mini-l">Total</div></div></div>
+      <div class="mini-c"><div class="mini-ic bg-green">${ico('check', 15, '#16a34a')}</div>
+        <div><div class="mini-v">${done}</div><div class="mini-l">Tratados</div></div></div>
+      <div class="mini-c"><div class="mini-ic bg-amber">${ico('relogio', 15, '#d97706')}</div>
+        <div><div class="mini-v">${hoje}</div><div class="mini-l">Vencem hoje</div></div></div>
+      <div class="mini-c"><div class="mini-ic bg-purple">${ico('relogio', 15, '#7c3aed')}</div>
+        <div><div class="mini-v">${tempoMedio}h</div><div class="mini-l">Tempo médio</div></div></div>
+    </div>`;
 
   const ids = uniq(l.map(o => o.theme_id));
   const stats = ids.map(id => {
-    const t = byId(M.log_themes, id) || { icon: '📋', label: '—' };
+    const t = byId(M.log_themes, id) || { icon: '', label: '—' };
     const all = l.filter(o => o.theme_id === id);
     const d = all.filter(o => o.status === 'done').length;
     const e = all.filter(o => o.status === 'open' && remaining(o) <= 0).length;
@@ -1273,13 +1466,12 @@ function renderLogDash() {
     return;
   }
   const max = Math.max(...stats.map(s => s.total));
-  $('log-bar').innerHTML = stats.map(s =>
-    `<div class="bar-col"><div class="bar-val">${s.total}</div>
-      <div class="bar-bg"><div class="bar-fill" style="height:${Math.round(s.total / max * 100)}%"></div></div>
-      <div class="bar-lbl">${s.icon}<br>${esc(s.label)}</div></div>`).join('');
-  $('log-donuts').innerHTML = stats.map(s => donut(s.pct, `${s.icon} ${esc(s.label)}`, `${s.done}/${s.total} tratados`,
-    s.expired ? `<span class="badge badge-red" style="margin-top:3px">⚠️ ${s.expired} vencido${s.expired > 1 ? 's' : ''}</span>` : '')).join('');
-  $('log-rank').innerHTML = stats.map((s, i) => rankRow(i + 1, `${s.icon} ${esc(s.label)}`,
+  $('log-bar').innerHTML = barChart(
+    stats.map(s => ({ valor: s.total, rotulo: esc(s.label) })),
+    { vazio: 'Nenhum ponto registrado neste período.' });
+  $('log-donuts').innerHTML = stats.map(s => donut(s.pct, `${temaIco(s.icon, 14)} ${esc(s.label)}`, `${s.done}/${s.total} tratados`,
+    s.expired ? `<span class="badge badge-red" style="margin-top:3px">${s.expired} vencido${s.expired > 1 ? 's' : ''}</span>` : '')).join('');
+  $('log-rank').innerHTML = stats.map((s, i) => rankRow(i + 1, `${temaIco(s.icon, 14)} ${esc(s.label)}`,
     i === 0 ? '<span class="badge badge-red">Maior volume</span>' : s.pct >= 80 ? '<span class="badge badge-green">Controlado</span>' : '<span class="badge badge-orange">Atenção</span>',
     Math.round(s.total / max * 100), s.total)).join('');
 
@@ -1289,7 +1481,7 @@ function renderLogDash() {
     const e = all.filter(o => o.status === 'open' && remaining(o) <= 0).length;
     return { name: u.name, total: all.length, done: d, expired: e, pct: all.length ? Math.round(d / all.length * 100) : 0 };
   }).filter(s => s.total > 0).sort((a, b) => b.total - a.total);
-  $('log-sup').innerHTML = sups.length ? sups.map((s, i) => rankRow(i + 1, `👤 ${esc(s.name)}`,
+  $('log-sup').innerHTML = sups.length ? sups.map((s, i) => rankRow(i + 1, `${ico('usuario',13)} ${esc(s.name)}`,
     s.expired ? `<span class="badge badge-red">${s.expired} vencido${s.expired > 1 ? 's' : ''}</span>`
       : s.pct >= 80 ? '<span class="badge badge-green">Em dia</span>' : '<span class="badge badge-orange">Atenção</span>',
     s.pct, s.done + '/' + s.total)).join('') : noData('Nenhum ponto atribuído aos supervisores ainda.');
@@ -1300,13 +1492,26 @@ function renderLogDash() {
     const d = all.filter(o => o.status === 'done').length;
     const e = all.filter(o => o.status === 'open' && remaining(o) <= 0).length;
     return `<div class="crit-stat-row">
-      <div class="crit-dot" style="background:${c.badge === 'badge-green' ? 'var(--green-bg)' : c.badge === 'badge-orange' ? 'var(--orange-bg)' : 'var(--red-bg)'}">${c.icon}</div>
+      <div class="crit-dot dot-bg-${c.tone}">${dot(c.tone)}</div>
       <div style="flex:1">
         <div style="font-size:13px;font-weight:700;color:var(--blue)">${c.label} · ${c.hours}h</div>
         <div style="font-size:11.5px;color:var(--text3)">${all.length} registro${all.length !== 1 ? 's' : ''} · ${d} tratado${d !== 1 ? 's' : ''}${e ? ' · ' + e + ' vencido' + (e > 1 ? 's' : '') : ''}</div>
       </div>
       <div class="rank-score">${Math.round(d / all.length * 100)}%</div></div>`;
   }).join('') || noData('Sem dados.');
+}
+
+/* Leva direto para a lista filtrada nos vencidos. */
+function irParaVencidos() {
+  S.filter = 'vencido';
+  goPage('pontos');
+  setTimeout(() => {
+    document.querySelectorAll('#page-pontos .pill-tab').forEach(b => b.classList.remove('active'));
+    const bt = [...document.querySelectorAll('#page-pontos .pill-tab')]
+      .find(b => /vencid/i.test(b.textContent));
+    if (bt) bt.classList.add('active');
+    renderPontos('vencido');
+  }, 60);
 }
 
 /* ══════════ DASH PESQUISA ══════════ */
@@ -1347,13 +1552,13 @@ function renderSurvDash() {
     <div class="kpi-card light"><div class="kpi-val sm" style="color:var(--red)">${esc(sorted[sorted.length - 1].label)}</div><div class="kpi-lbl">Mais crítico</div></div>
     <div class="kpi-card light"><div class="kpi-val sm" style="color:var(--green)">${esc(sorted[0].label)}</div><div class="kpi-lbl">Mais positivo</div></div>`;
 
-  $('surv-bar').innerHTML = stats.map(s =>
-    `<div class="bar-col"><div class="bar-val">${s.avg.toFixed(1)}</div>
-      <div class="bar-bg"><div class="bar-fill" style="height:${Math.round(s.avg / 5 * 100)}%"></div></div>
-      <div class="bar-lbl">${s.icon}<br>${esc(s.label)}</div></div>`).join('');
-  $('surv-donuts').innerHTML = stats.map(s => donut(s.sat, `${s.icon} ${esc(s.label)}`, `${s.responders} respondente${s.responders !== 1 ? 's' : ''}`)).join('');
+  $('surv-bar').innerHTML = barChart(
+    stats.map(s => ({ valor: s.avg, rotulo: esc(s.label),
+      cor: s.avg >= 4 ? '#16a34a' : s.avg >= 3 ? '#d97706' : '#dc2626' })),
+    { escala: 5, decimal: true, vazio: 'Nenhuma resposta ainda.' });
+  $('surv-donuts').innerHTML = stats.map(s => donut(s.sat, `${temaIco(s.icon, 14)} ${esc(s.label)}`, `${s.responders} respondente${s.responders !== 1 ? 's' : ''}`)).join('');
   const maxAvg = Math.max(...sorted.map(s => s.avg));
-  $('surv-rank').innerHTML = sorted.map((s, i) => rankRow(i + 1, `${s.icon} ${esc(s.label)}`,
+  $('surv-rank').innerHTML = sorted.map((s, i) => rankRow(i + 1, `${temaIco(s.icon, 14)} ${esc(s.label)}`,
     i === 0 ? '<span class="badge badge-green">Melhor</span>' : i === sorted.length - 1 ? '<span class="badge badge-red">Crítico</span>' : '<span class="badge badge-orange">Médio</span>',
     Math.round(s.avg / maxAvg * 100), s.avg.toFixed(1))).join('');
 
@@ -1377,7 +1582,7 @@ function renderSurvDash() {
       const dots = valid.map(x => `<circle cx="${(x.i / Math.max(1, s.pts.length - 1)) * w}" cy="${((5 - x.p) / 4) * h}" r="3.5" fill="#0f5bbf"/>`).join('');
       const last = valid[valid.length - 1];
       return `<div class="spark-row" style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <div style="font-size:12.5px;font-weight:600;color:var(--blue);width:95px;flex-shrink:0">${s.icon} ${esc(s.label)}</div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--blue);width:95px;flex-shrink:0">${temaIco(s.icon, 14)} ${esc(s.label)}</div>
         <svg width="${w}" height="${h + 8}" style="flex:1">
           <polyline points="${poly}" fill="none" stroke="#3a8ee6" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>${dots}</svg>
         <div style="font-size:12.5px;font-weight:700;color:var(--blue2);width:32px;text-align:right">${last.p.toFixed(1)}</div></div>`;
@@ -1415,15 +1620,13 @@ function renderVoteDash() {
     <div class="kpi-card light"><div class="kpi-val">${emps.length}</div><div class="kpi-lbl">Colaboradores aptos</div></div>
     <div class="kpi-card light"><div class="kpi-val">${pct}%</div><div class="kpi-lbl">Adesão</div></div>
     <div class="kpi-card light"><div class="kpi-val">${cands.length}</div><div class="kpi-lbl">Candidatos</div></div>
-    <div class="kpi-card light"><div class="kpi-val sm">${el.status === 'open' ? '🟢 Aberta' : '🔒 Encerrada'}</div><div class="kpi-lbl">${esc(el.title)}</div></div>`;
+    <div class="kpi-card light"><div class="kpi-val sm">${el.status === 'open' ? 'Aberta' : 'Encerrada'}</div><div class="kpi-lbl">${esc(el.title)}</div></div>`;
 
   const max = Math.max(...Object.values(tally), 1);
-  $('vote-bar').innerHTML = cands.length ? cands.map(c => {
-    const v = tally[c.id] || 0;
-    return `<div class="bar-col"><div class="bar-val">${v}</div>
-      <div class="bar-bg"><div class="bar-fill" style="height:${Math.round(v / max * 100)}%"></div></div>
-      <div class="bar-lbl">${esc(initials(c.name))}<br>${esc(c.name.split(' ')[0])}</div></div>`;
-  }).join('') : noData('Nenhum candidato cadastrado.');
+  $('vote-bar').innerHTML = barChart(
+    [...cands].sort((a, b) => (tally[b.id] || 0) - (tally[a.id] || 0))
+      .map(c => ({ valor: tally[c.id] || 0, rotulo: esc(c.name.split(' ')[0]) })),
+    { vazio: 'Nenhum candidato cadastrado.' });
 
   $('vote-turnout').innerHTML = SHIFTS.map(sh => {
     const e = emps.filter(x => x.shift === sh);
@@ -1456,11 +1659,11 @@ function renderVoteTable() {
       <td><strong>${esc(r.emp.matricula)}</strong></td>
       <td>${esc(r.emp.name)}</td>
       <td style="font-size:12px;color:var(--text2)">${esc(r.emp.shift)}</td>
-      <td>${r.vote ? '<span class="badge badge-green">✓ Votou</span>' : '<span class="badge badge-gray">Falta votar</span>'}
-        ${r.cancelled ? '<span class="badge badge-orange" style="margin-left:4px">↩ Revotou</span>' : ''}</td>
+      <td>${r.vote ? '<span class="badge badge-green">Votou</span>' : '<span class="badge badge-gray">Falta votar</span>'}
+        ${r.cancelled ? '<span class="badge badge-orange" style="margin-left:4px">Revotou</span>' : ''}</td>
       <td style="font-size:12px;color:var(--text3);white-space:nowrap">${r.vote ? fmtDate(r.vote.created_at) : '—'}</td>
       <td>${r.vote && isAdmin() && el.status === 'open' && !r.cancelled
-        ? `<button class="btn-ghost" onclick="openCancelVote('${r.vote.id}')">↩️ Cancelar</button>` : ''}</td>
+        ? `<button class="btn-ghost" onclick="openCancelVote('${r.vote.id}')">↩ Cancelar</button>` : ''}</td>
     </tr>`).join('')
     : `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Nenhum colaborador encontrado.</td></tr>`;
 }
@@ -1500,9 +1703,9 @@ function renderElections() {
   const el = openElection(cd);
   const admin = isAdmin();
   $('election-actions').innerHTML = !admin ? '' : (el
-    ? `<button class="btn-ghost" onclick="openCandModal()">+ Candidato</button>
-       <button class="btn-primary shrink sm danger" onclick="closeElection('${el.id}')">🔒 Encerrar eleição</button>`
-    : `<button class="btn-primary shrink sm" onclick="createElection('${esc(cd)}')">+ Abrir eleição</button>`);
+    ? `<button class="btn-ghost" onclick="openCandModal()">Adicionar candidato</button>
+       <button class="btn-primary shrink sm danger" onclick="closeElection('${el.id}')">Encerrar eleição</button>`
+    : `<button class="btn-primary shrink sm" onclick="createElection('${esc(cd)}')">Abrir eleição</button>`);
 
   if (!el) {
     $('election-current').innerHTML = `<div class="period-card"><div class="period-head">
@@ -1517,7 +1720,7 @@ function renderElections() {
       <div class="period-head">
         <div><div class="period-title">${esc(el.title)}</div>
         <div class="period-meta">${esc(el.cd)} · aberta há ${days} dia${days !== 1 ? 's' : ''} · desde ${fmtDateFull(el.created_at)}</div></div>
-        <span class="badge badge-green">🟢 Em andamento</span>
+        <span class="badge badge-green"> Em andamento</span>
       </div>
       <div class="countdown">
         <div class="cd-box"><div class="cd-num">${votes}</div><div class="cd-lbl">Votos</div></div>
@@ -1530,9 +1733,9 @@ function renderElections() {
         ${cands.length ? cands.map(c => `<div class="list-item" style="margin-bottom:7px">
           <div class="list-avatar emp">${esc(initials(c.name))}</div>
           <div class="list-body"><div class="list-name">${esc(c.name)}</div>
-          <div class="list-meta">${esc(c.shift)} · ${esc(c.sector || '')} · 🗳️ ${tally[c.id] || 0} voto${(tally[c.id] || 0) !== 1 ? 's' : ''}</div></div>
-          ${admin ? `<button class="btn-ghost danger" onclick="openExclude('${c.id}')">🗑️</button>` : ''}
-        </div>`).join('') : noData('Nenhum candidato cadastrado. Use "+ Candidato".')}
+          <div class="list-meta">${esc(c.shift)} · ${esc(c.sector || '')} · ${ico('urna',12)} ${tally[c.id] || 0} voto${(tally[c.id] || 0) !== 1 ? 's' : ''}</div></div>
+          ${admin ? `<button class="btn-ghost danger" onclick="openExclude('${c.id}')"></button>` : ''}
+        </div>`).join('') : noData('Nenhum candidato cadastrado. Use "Adicionar candidato".')}
       </div>
     </div>`;
   }
@@ -1542,8 +1745,8 @@ function renderElections() {
     <div class="hist-card">
       <div class="hist-head"><div><div class="hist-title">${esc(e.title)}</div>
         <div class="hist-meta">${esc(e.cd)} · ${fmtDateFull(e.created_at)} a ${fmtDateFull(e.closed_at)} · ${e.total_votes || 0} votos</div></div>
-        <span class="badge badge-gray">🔒 Encerrada</span></div>
-      ${(e.winners || []).map(w => `<div class="winner-row"><span class="winner-medal">🏆</span>
+        <span class="badge badge-gray">Encerrada</span></div>
+      ${(e.winners || []).map(w => `<div class="winner-row"><span class="winner-medal">${ico('trofeu', 15)}</span>
         <div><div class="winner-name">${esc(w.name)}</div>
         <div class="winner-meta">${esc(w.shift)} · ${w.votes} voto${w.votes !== 1 ? 's' : ''}</div></div></div>`).join('')}
     </div>`).join('') : noData('Nenhuma eleição encerrada ainda.');
@@ -1609,7 +1812,7 @@ function openExclude(candId) {
   $('excl-preview').innerHTML = `<div class="vote-modal-avatar">${esc(initials(c.name))}</div>
     <div><div class="vote-modal-name">${esc(c.name)}</div>
     <div class="vote-modal-meta">${esc(c.shift)} · ${esc(c.sector || '')}</div>
-    <div style="font-size:12px;color:var(--blue2);margin-top:4px">🗳️ ${v} voto${v !== 1 ? 's' : ''}</div></div>`;
+    <div style="font-size:12px;color:var(--blue2);margin-top:4px">${ico('urna',12)} ${v} voto${v !== 1 ? 's' : ''}</div></div>`;
   $('excl-reason').value = ''; $('excl-char').textContent = '0 / 200'; $('excl-btn').disabled = true;
   openModal('modal-excluir');
   setTimeout(() => $('excl-reason').focus(), 100);
@@ -1646,8 +1849,8 @@ function renderRounds() {
   const rd = openRound(cd);
   const admin = isAdmin();
   $('round-actions').innerHTML = !admin ? '' : (rd
-    ? `<button class="btn-primary shrink sm danger" onclick="closeRound('${rd.id}')">🔒 Encerrar rodada</button>`
-    : `<button class="btn-primary shrink sm" onclick="createRound('${esc(cd)}')">+ Abrir rodada</button>`);
+    ? `<button class="btn-primary shrink sm danger" onclick="closeRound('${rd.id}')">Encerrar rodada</button>`
+    : `<button class="btn-primary shrink sm" onclick="createRound('${esc(cd)}')">Abrir rodada</button>`);
 
   if (!rd) {
     const last = M.survey_rounds.filter(r => r.cd === cd && r.status === 'closed').sort((a, b) => toMs(b.closed_at) - toMs(a.closed_at))[0];
@@ -1667,7 +1870,7 @@ function renderRounds() {
       <div class="period-head">
         <div><div class="period-title">${esc(rd.title)}</div>
         <div class="period-meta">${esc(rd.cd)} · versão de temas V${rd.theme_version} · aberta em ${fmtDateFull(rd.created_at)}</div></div>
-        <span class="badge ${days <= 7 ? 'badge-orange' : 'badge-green'}">${days <= 7 ? '⏰ Encerrando' : '🟢 Aberta'}</span>
+        <span class="badge ${days <= 7 ? 'badge-orange' : 'badge-green'}">${days <= 7 ? 'Encerrando' : 'Aberta'}</span>
       </div>
       <div class="countdown">
         <div class="cd-box"><div class="cd-num">${days}</div><div class="cd-lbl">Dias restantes</div></div>
@@ -1748,25 +1951,25 @@ function renderQrTab() {
 function renderQrList() {
   const list = M.qr_codes.filter(q => dashCds().includes(q.cd));
   const hasFlyer = !!(M.settings.flyer_image);
-  const PURPOSE = { menu: '📋 Menu completo', ponto: '⚡ Ponto de atenção', pesquisa: '📝 Pesquisa', voto: '🗳️ Votação' };
+  const PURPOSE = { menu: ' Menu completo', ponto: 'Ponto de atenção', pesquisa: 'Pesquisa', voto: 'Votação' };
   $('qr-list').innerHTML = list.length ? list.map(q => {
     const url = qrUrlFor(q);
     let svg = '';
     try { svg = QRCode.toSVG(url, { size: 168 }); }
     catch (e) { svg = '<div style="padding:2rem;color:var(--red);font-size:12px">URL muito longa</div>'; }
     return `<div class="qr-card">
-      <button class="btn-icon del qr-del" onclick="removeQr('${q.id}')">🗑</button>
+      <button class="btn-icon del qr-del" onclick="removeQr('${q.id}')"></button>
       <div class="qr-card-label">${esc(q.label)}</div>
       <div class="qr-card-meta">${esc(q.cd)}${q.sector ? ' · ' + esc(q.sector) : ''}<br>${PURPOSE[q.purpose] || q.purpose}</div>
       <div class="qr-img" id="qrimg-${q.id}">${svg}</div>
       <div class="qr-url">${esc(url)}</div>
       <div class="qr-actions">
-        <button class="btn-ghost" onclick="downloadQr('${q.id}')">⬇️ PNG</button>
-        <button class="btn-ghost" onclick="printQr('${q.id}')">🖨️ Padrão</button>
-        ${hasFlyer ? `<button class="btn-ghost" onclick="printFlyer('${q.id}')">🖼️ Arte</button>
-        <button class="btn-ghost" onclick="downloadFlyer('${q.id}')">⬇️ Arte PNG</button>` : ''}
+        <button class="btn-ghost" onclick="downloadQr('${q.id}')"> PNG</button>
+        <button class="btn-ghost" onclick="printQr('${q.id}')"> Padrão</button>
+        ${hasFlyer ? `<button class="btn-ghost" onclick="printFlyer('${q.id}')"> Arte</button>
+        <button class="btn-ghost" onclick="downloadFlyer('${q.id}')">Arte PNG</button>` : ''}
       </div></div>`;
-  }).join('') : emptyBox('📱', 'Nenhum QR Code criado', 'Clique em "+ Novo QR Code" para gerar o primeiro.');
+  }).join('') : emptyBox('qr', 'Nenhum QR Code criado', 'Clique em "+ Novo QR Code" para gerar o primeiro.');
 }
 function openQrModal() {
   fillSelect('qr-cd', scopeCds(), currentCd());
@@ -1811,10 +2014,10 @@ function printQr(id) {
   const p = PURPOSE[q.purpose] || PURPOSE.menu;
 
   const BENEFITS = [
-    { i: '💡', t: 'Compartilhe ideias, sugestões e melhorias' },
-    { i: '👥', t: 'Ajuda a tornar nossa operação mais segura e ágil' },
-    { i: '📈', t: 'Suas ideias viram ações que geram resultados reais' },
-    { i: '🏆', t: 'Reconhecimento para quem contribui com o crescimento' },
+    { i: '', t: 'Compartilhe ideias, sugestões e melhorias' },
+    { i: '', t: 'Ajuda a tornar nossa operação mais segura e ágil' },
+    { i: '', t: 'Suas ideias viram ações que geram resultados reais' },
+    { i: '', t: 'Reconhecimento para quem contribui com o crescimento' },
   ];
 
   const w = window.open('', '_blank');
@@ -1925,8 +2128,7 @@ function printQr(id) {
   </div>
 
   <div class="body">
-    <div class="intro">
-      O <b>Voz da Operação</b> é o canal que conecta você às mudanças
+    <div class="intro"> O <b>Voz da Operação</b> é o canal que conecta você às mudanças
       que fazem a diferença todos os dias.
     </div>
 
@@ -2222,10 +2424,10 @@ function renderCfgUsers() {
       <div class="list-body">
         <div class="list-name">${esc(u.name)}
           <span class="badge ${u.role === 'admin' ? 'badge-gray' : u.role === 'gerente' ? 'badge-purple' : u.role === 'coordenador' ? 'badge-blue' : 'badge-green'}">${ROLE_LABEL[u.role]}</span></div>
-        <div class="list-meta">🔑 ${esc(u.email || 'sem e-mail de login')} · Matrícula ${esc(u.matricula)} · ${esc(u.cd)}</div>
+        <div class="list-meta">${ico('chave',12)} ${esc(u.email || 'sem e-mail de login')} · Matrícula ${esc(u.matricula)} · ${esc(u.cd)}</div>
       </div>
-      <button class="btn-icon" onclick="openUserModal('${u.id}')">✏️</button>
-      ${u.id !== 'u0' ? `<button class="btn-icon del" onclick="removeUser('${u.id}')">🗑</button>` : ''}
+      <button class="btn-icon" onclick="openUserModal('${u.id}')"></button>
+      ${u.id !== 'u0' ? `<button class="btn-icon del" onclick="removeUser('${u.id}')"></button>` : ''}
     </div>`).join('') || noData('Nenhum gestor neste CD.');
 }
 function updateRoleHint() {
@@ -2238,9 +2440,9 @@ function updateRoleHint() {
 function openUserModal(id) {
   S._editUser = id || null;
   const u = id ? byId(M.profiles, id) : null;
-  $('modal-user-title').innerHTML = (u ? '✏️ Editar Gestor' : '👤 Novo Gestor') +
-    ' <button class="modal-close" onclick="closeModal(\'modal-user\')">✕</button>';
-  fillSelect('usr-cd', [{ value: REGIONAL, label: '🌎 Regional — todos os CDs' }, ...CDS.map(c => ({ value: c, label: c }))], u ? u.cd : CDS[0]);
+  $('modal-user-title').innerHTML = (u ? ico('usuario',17) + ' Editar Gestor' : ico('usuario',17) + ' Novo Gestor') +
+    ' <button class="modal-close" onclick="closeModal(\'modal-user\')"></button>';
+  fillSelect('usr-cd', [{ value: REGIONAL, label: 'Regional — todos os CDs' }, ...CDS.map(c => ({ value: c, label: c }))], u ? u.cd : CDS[0]);
   $('usr-name').value = u ? u.name : '';
   $('usr-matricula').value = u ? u.matricula : '';
   $('usr-pass').value = u ? (DB.online ? '' : (u.password || '')) : '';
@@ -2337,17 +2539,17 @@ function renderCfgEmployees() {
           <div class="list-body"><div class="list-name">${esc(e.name)}
             <span class="cd-tag">${esc(e.cd.replace('CD ', ''))}</span></div>
             <div class="list-meta">Matrícula ${esc(e.matricula)} · ${esc(e.job_title || 'sem função')} · ${esc(e.shift)} · ${esc(e.sector)}${e.admission_date ? ' · desde ' + fmtDateISO(e.admission_date) : ''}</div></div>
-          <button class="btn-icon" onclick="openEmpModal('${e.id}')">✏️</button>
-          <button class="btn-icon del" onclick="removeEmp('${e.id}')">🗑</button>
+          <button class="btn-icon" onclick="openEmpModal('${e.id}')"></button>
+          <button class="btn-icon del" onclick="removeEmp('${e.id}')"></button>
         </div>`).join('')}</div>`
-    : emptyBox('🧑‍🏭', 'Nenhum colaborador encontrado', 'Cadastre ou importe a lista de colaboradores ativos.');
+    : emptyBox('usuarios', 'Nenhum colaborador encontrado', 'Cadastre ou importe a lista de colaboradores ativos.');
 }
 function openEmpModal(id) {
   S._editEmp = id || null;
   const e = id ? byId(M.employees, id) : null;
-  $('modal-emp-title').innerHTML = (e ? '✏️ Editar Colaborador' : '🧑‍🏭 Novo Colaborador') +
-    ' <button class="modal-close" onclick="closeModal(\'modal-emp\')">✕</button>';
-  const cdsEmp = [{ value: REGIONAL, label: '🌎 Regional — atua em todos os CDs' },
+  $('modal-emp-title').innerHTML = (e ? ico('usuario',17) + ' Editar Colaborador' : ico('usuario',17) + ' Novo Colaborador') +
+    ' <button class="modal-close" onclick="closeModal(\'modal-emp\')"></button>';
+  const cdsEmp = [{ value: REGIONAL, label: 'Regional — atua em todos os CDs' },
                   ...scopeCds().map(c => ({ value: c, label: c }))];
   fillSelect('emp-cd', cdsEmp, e ? e.cd : currentCd());
   $('emp-matricula').value = e ? e.matricula : '';
@@ -2386,7 +2588,7 @@ function removeEmp(id) {
   });
 }
 function openImportModal() {
-  fillSelect('import-cd', [{ value: REGIONAL, label: '🌎 Regional — atua em todos os CDs' },
+  fillSelect('import-cd', [{ value: REGIONAL, label: 'Regional — atua em todos os CDs' },
                            ...scopeCds().map(c => ({ value: c, label: c }))], currentCd());
   $('import-text').value = '';
   $('import-preview').classList.add('hidden');
@@ -2472,9 +2674,9 @@ function analyzeImport() {
   const nErr = rows.filter(r => r.status === 'err').length;
 
   $('import-stats').innerHTML =
-    `<span class="import-stat ok">✓ ${nOk} para importar</span>` +
+    `<span class="import-stat ok"> ${nOk} para importar</span>` +
     (nDup ? `<span class="import-stat dup">↺ ${nDup} já cadastrada${nDup > 1 ? 's' : ''}</span>` : '') +
-    (nErr ? `<span class="import-stat err">✕ ${nErr} com problema</span>` : '');
+    (nErr ? `<span class="import-stat err"> ${nErr} com problema</span>` : '');
 
   $('import-tbody').innerHTML = rows.slice(0, 200).map(r => `
     <tr class="${r.status}">
@@ -2490,7 +2692,7 @@ function analyzeImport() {
 
   box.classList.remove('hidden');
   btn.disabled = nOk === 0;
-  btn.textContent = nOk ? `✅ Importar ${nOk} colaborador${nOk > 1 ? 'es' : ''}` : '✅ Importar';
+  btn.textContent = nOk ? ` Importar ${nOk} colaborador${nOk > 1 ? 'es' : ''}` : ' Importar';
 }
 
 async function submitImport() {
@@ -2526,15 +2728,15 @@ function renderCfgEmails() {
       <div class="email-info"><div class="email-addr">${esc(e.address)}</div>
         <div class="email-name">${esc(e.name)} · ${esc(e.cd)}</div></div>
       <div class="email-events">
-        <span class="evt-chip new ${e.on_new ? 'on' : ''}"      onclick="toggleEvt('${e.id}','on_new')">📌 Novo</span>
-        <span class="evt-chip warn ${e.on_warning ? 'on' : ''}" onclick="toggleEvt('${e.id}','on_warning')">⏰ 12h</span>
-        <span class="evt-chip exp ${e.on_expired ? 'on' : ''}"  onclick="toggleEvt('${e.id}','on_expired')">🚨 Vencido</span>
+        <span class="evt-chip new ${e.on_new ? 'on' : ''}"      onclick="toggleEvt('${e.id}','on_new')">Novo</span>
+        <span class="evt-chip warn ${e.on_warning ? 'on' : ''}" onclick="toggleEvt('${e.id}','on_warning')">12h</span>
+        <span class="evt-chip exp ${e.on_expired ? 'on' : ''}"  onclick="toggleEvt('${e.id}','on_expired')">Vencido</span>
       </div>
-      <button class="btn-icon del" onclick="removeEmail('${e.id}')">🗑</button>
+      <button class="btn-icon del" onclick="removeEmail('${e.id}')"></button>
     </div>`).join('') : noData('Nenhum destinatário cadastrado.');
 }
 function openEmailModal() {
-  fillSelect('eml-cd', [{ value: REGIONAL, label: '🌎 Regional — todos os CDs' }, ...scopeCds().map(c => ({ value: c, label: c }))]);
+  fillSelect('eml-cd', [{ value: REGIONAL, label: 'Regional — todos os CDs' }, ...scopeCds().map(c => ({ value: c, label: c }))]);
   $('eml-name').value = ''; $('eml-addr').value = '';
   ['eml-new', 'eml-warn', 'eml-exp'].forEach(i => $(i).checked = true);
   openModal('modal-email');
@@ -2576,28 +2778,45 @@ function renderCfgLogThemes() {
     const c = CRIT[t.criticality] || CRIT.media;
     return `
     <div class="theme-editor-item"><div class="theme-editor-header">
-      <input class="theme-editor-icon-input" value="${esc(t.icon)}" maxlength="2" oninput="S.draftLogThemes[${i}].icon=this.value">
+      <div class="ico-pick">
+        <button class="ico-pick-btn" onclick="toggleIcoPick(${i})" title="Trocar ícone">${temaIco(t.icon, 17)}</button>
+        <div class="ico-pick-menu" id="icopick-${i}">
+          ${ICO_TEMA.map(([n, lbl]) => `<button class="ico-opt ${t.icon === n ? 'sel' : ''}" title="${lbl}"
+            onclick="setTemaIco(${i},'${n}')">${ico(n, 17)}</button>`).join('')}
+        </div>
+      </div>
       <input class="theme-editor-name-input" value="${esc(t.label)}" oninput="S.draftLogThemes[${i}].label=this.value">
       <select class="sup-select cd-select" onchange="S.draftLogThemes[${i}].cd=this.value;renderCfgLogThemes()">
         ${cds.map(cd => `<option value="${esc(cd)}" ${t.cd === cd ? 'selected' : ''}>${esc(cd.replace('CD ', ''))}</option>`).join('')}
       </select>
       <select class="sup-select crit-select ${t.criticality || 'media'}" onchange="S.draftLogThemes[${i}].criticality=this.value;renderCfgLogThemes()">
-        <option value="baixa" ${t.criticality === 'baixa' ? 'selected' : ''}>🟢 Baixa · 48h</option>
-        <option value="media" ${(t.criticality || 'media') === 'media' ? 'selected' : ''}>🟡 Média · 72h</option>
-        <option value="alta"  ${t.criticality === 'alta'  ? 'selected' : ''}>🔴 Alta · 96h</option>
+        <option value="baixa" ${t.criticality === 'baixa' ? 'selected' : ''}>Baixa · 48h</option>
+        <option value="media" ${(t.criticality || 'media') === 'media' ? 'selected' : ''}>Média · 72h</option>
+        <option value="alta"  ${t.criticality === 'alta'? 'selected' : ''}>Alta · 96h</option>
       </select>
       <select class="sup-select" onchange="S.draftLogThemes[${i}].supervisor_id=this.value||null">
         <option value="">— sem supervisor —</option>
-        ${sups.map(u => `<option value="${u.id}" ${t.supervisor_id === u.id ? 'selected' : ''}>👤 ${esc(u.name)}</option>`).join('')}
+        ${sups.map(u => `<option value="${u.id}" ${t.supervisor_id === u.id ? 'selected' : ''}>${ico('usuario',12)} ${esc(u.name)}</option>`).join('')}
       </select>
-      <button class="btn-icon del" onclick="removeLogTheme(${i})">🗑</button>
+      <button class="btn-icon del" onclick="removeLogTheme(${i})"></button>
     </div></div>`;
   }).join('') || noData('Nenhum tema cadastrado para este CD.');
 }
+function toggleIcoPick(i) {
+  const m = $('icopick-' + i);
+  const aberto = m.classList.contains('open');
+  document.querySelectorAll('.ico-pick-menu').forEach(x => x.classList.remove('open'));
+  if (!aberto) m.classList.add('open');
+}
+function setTemaIco(i, nome) {
+  S.draftLogThemes[i].icon = nome;
+  renderCfgLogThemes();
+}
+
 function addLogTheme() {
   if (!S.draftLogThemes) S.draftLogThemes = JSON.parse(JSON.stringify(M.log_themes));
   const sup = M.profiles.find(u => u.role === 'supervisor');
-  S.draftLogThemes.push({ id: 'new_' + Date.now(), label: 'Novo Tema', icon: '📌', cd: currentCd(),
+  S.draftLogThemes.push({ id: 'new_' + Date.now(), label: 'Novo Tema', icon: '', cd: currentCd(),
     criticality: 'media', supervisor_id: sup ? sup.id : null, active: true });
   renderCfgLogThemes();
   toast('Tema adicionado. Clique em Salvar para confirmar.', 'blue');
@@ -2621,10 +2840,16 @@ function renderCfgSurvThemes() {
   $('cfg-surv-themes').innerHTML = S.draftSurvThemes.map((t, ti) => `
     <div class="theme-editor-item">
       <div class="theme-editor-header clickable" onclick="toggleBody('sv-${ti}',this)">
-        <input class="theme-editor-icon-input" value="${esc(t.icon)}" maxlength="2" onclick="event.stopPropagation()" oninput="S.draftSurvThemes[${ti}].icon=this.value">
+        <div class="ico-pick" onclick="event.stopPropagation()">
+          <button class="ico-pick-btn" onclick="toggleIcoPickSv(${ti})" title="Trocar ícone">${temaIco(t.icon, 17)}</button>
+          <div class="ico-pick-menu" id="icopicksv-${ti}">
+            ${ICO_TEMA.map(([n, lbl]) => `<button class="ico-opt ${t.icon === n ? 'sel' : ''}" title="${lbl}"
+              onclick="setSurvIco(${ti},'${n}')">${ico(n, 17)}</button>`).join('')}
+          </div>
+        </div>
         <input class="theme-editor-name-input" value="${esc(t.label)}" onclick="event.stopPropagation()" oninput="S.draftSurvThemes[${ti}].label=this.value">
         <span style="font-size:11px;color:var(--text3)">${(t.questions || []).length} pergunta${(t.questions || []).length !== 1 ? 's' : ''}</span>
-        <button class="btn-icon del" onclick="event.stopPropagation();removeSurvTheme(${ti})">🗑</button>
+        <button class="btn-icon del" onclick="event.stopPropagation();removeSurvTheme(${ti})"></button>
         <span class="theme-editor-toggle">▾</span>
       </div>
       <div class="theme-editor-body" id="sv-${ti}">
@@ -2632,7 +2857,7 @@ function renderCfgSurvThemes() {
           <div class="question-editor-row">
             <span class="qe-num">${qi + 1}.</span>
             <input value="${esc(q)}" oninput="S.draftSurvThemes[${ti}].questions[${qi}]=this.value" placeholder="Digite a pergunta...">
-            <button class="btn-icon del" onclick="removeSurvQuestion(${ti},${qi})">🗑</button>
+            <button class="btn-icon del" onclick="removeSurvQuestion(${ti},${qi})"></button>
           </div>`).join('')}
         <button class="btn-secondary" style="font-size:12px;padding:7px 14px;margin-top:6px" onclick="addSurvQuestion(${ti})">+ Adicionar Pergunta</button>
       </div>
@@ -2643,9 +2868,20 @@ function toggleBody(id, hdr) {
   b.classList.toggle('open');
   const a = hdr.querySelector('.theme-editor-toggle'); if (a) a.classList.toggle('open');
 }
+function toggleIcoPickSv(i) {
+  const m = $('icopicksv-' + i);
+  const aberto = m.classList.contains('open');
+  document.querySelectorAll('.ico-pick-menu').forEach(x => x.classList.remove('open'));
+  if (!aberto) m.classList.add('open');
+}
+function setSurvIco(i, nome) {
+  S.draftSurvThemes[i].icon = nome;
+  renderCfgSurvThemes();
+}
+
 function addSurvTheme() {
   if (!S.draftSurvThemes) S.draftSurvThemes = JSON.parse(JSON.stringify(currentVersion().themes));
-  S.draftSurvThemes.push({ id: 'st_' + Math.random().toString(36).slice(2, 9), label: 'Novo Tema', icon: '📌', questions: ['Digite a primeira pergunta'] });
+  S.draftSurvThemes.push({ id: 'st_' + Math.random().toString(36).slice(2, 9), label: 'Novo Tema', icon: 'lista', questions: ['Digite a primeira pergunta'] });
   renderCfgSurvThemes();
   toast('Tema adicionado. Expanda para editar as perguntas.', 'blue');
 }
@@ -2690,7 +2926,7 @@ function renderVersionHistory() {
       <div class="version-date">${fmtDate(v.created_at)}</div>
       <div class="version-desc">${esc(v.description)} · <strong>${n}</strong> resposta${n !== 1 ? 's' : ''}</div>
       ${!v.is_current ? `<button class="btn-restore" onclick="restoreVersion(${v.version})">↩ Restaurar</button>`
-        : '<span style="font-size:11px;color:var(--blue2);font-weight:700">✓ Em uso</span>'}</div>`;
+        : '<span style="font-size:11px;color:var(--blue2);font-weight:700">Em uso</span>'}</div>`;
   }).join('');
 }
 function restoreVersion(n) {
@@ -2764,10 +3000,9 @@ function pdfShell(titulo, subtitulo, corpo, paisagem) {
     .t-md{background:#fff3da;color:#c47800}
     .foot{margin-top:16px;padding-top:8px;border-top:1.5px solid #cddaee;font-size:9px;color:#7a93b0;text-align:center}
     </style></head><body>
-    <div class="hd"><div><h1>🎙️ ${esc(titulo)}</h1>
+    <div class="hd"><div><h1> ${esc(titulo)}</h1>
       <div class="sub">Voz da Operação · ${esc(cdLabel)}</div></div>
-      <div class="meta">${esc(subtitulo)}<br>Emitido em ${new Date().toLocaleString('pt-BR')}<br>
-      Por ${esc(S.user.name)} · ${ROLE_LABEL[S.user.role]}</div></div>
+      <div class="meta">${esc(subtitulo)}<br>Emitido em ${new Date().toLocaleString('pt-BR')}<br> Por ${esc(S.user.name)} · ${ROLE_LABEL[S.user.role]}</div></div>
     ${corpo}
     <div class="foot">Voz da Operação · Lactalis Brasil — documento gerado automaticamente</div>
     <script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script>
@@ -2822,7 +3057,7 @@ function pdfLogistica() {
       <td>${esc(o.cd.replace('CD ', ''))}</td><td>${esc(t.label)}</td>
       <td><strong>${esc(o.title)}</strong><br><span class="dim">${esc(o.description)}</span></td>
       <td>${c.label || ''}<br><span class="dim">${o.sla_hours}h</span></td>
-      <td>${esc(sp ? sp.name : '—')}${o.reassigned_at ? '<br><span class="dim">🔄 transferido</span>' : ''}</td>
+      <td>${esc(sp ? sp.name : '—')}${o.reassigned_at ? '<br><span class="dim">transferido</span>' : ''}</td>
       <td>${esc(o.author_name)}<br><span class="dim">${esc(o.author_matricula)}</span></td>
       <td>${fmtDate(o.created_at)}</td><td><strong>${st}</strong></td></tr>`;
   }).join('');
@@ -3071,7 +3306,7 @@ function paintConnLabel() {
   const el = $('nav-cd-label');
   if (!el) return;
   if (S.conn.error) {
-    el.innerHTML = '<span style="color:#ffb4b4">⚠ sem conexão com o banco</span>';
+    el.innerHTML = '<span style="color:#ffb4b4"> sem conexão com o banco</span>';
   } else if (!S.conn.online) {
     el.innerHTML = '<span style="color:#ffd08a">● Modo local</span> <span style="opacity:.6">· ' + esc(S.cd) + '</span>';
   } else {
