@@ -858,3 +858,9 @@ button .ic,.badge .ic,.list-meta .ic,.occ-meta .ic{margin-right:1px}
     padding:14px 0 4px;margin-top:1.1rem}
   .cand-pick{padding:15px 16px}
 }
+
+/* garante que os botões de ícone nunca fiquem "cegos" */
+.btn-icon .ic,.modal-close .ic,.cc-icon .ic,.qr-del .ic{display:block}
+.cc-icon{display:flex;align-items:center;justify-content:center;color:var(--blue2)}
+.choice-card.amber .cc-icon{color:var(--orange)}
+.btn-icon:empty::after,.modal-close:empty::after{content:'×';font-size:15px;line-height:1}

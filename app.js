@@ -58,7 +58,7 @@ const ICONS = {
   seta:       '<polyline points="9 18 15 12 9 6"/>',
   setaEsq:    '<polyline points="15 18 9 12 15 6"/>',
   cadeado:    '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
-  chave:      '<path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3"/>',
+  chave:      '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 8.5-8.5"/><path d="m16 5 3 3"/><path d="m19.5 6.5 2.5-2.5-2-2"/>',
   local:      '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
   email:      '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
   imagem:     '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>',
@@ -212,7 +212,7 @@ function openModal(id) { $(id).classList.remove('hidden'); }
 function closeModal(id) { $(id).classList.add('hidden'); }
 
 function confirmAction(title, msg, onOk) {
-  $('cfm-title').innerHTML = esc(title) + ' <button class="modal-close" onclick="closeModal(\'modal-confirm\')"></button>';
+  $('cfm-title').innerHTML = esc(title) + ` <button class="modal-close" onclick="closeModal('modal-confirm')">${ico('fechar', 15)}</button>`;
   $('cfm-msg').textContent = msg;
   const btn = $('cfm-ok');
   btn.onclick = () => { closeModal('modal-confirm'); onOk(); };
@@ -626,7 +626,7 @@ function selLogTheme(id) {
   box.classList.remove('hidden');
   box.className = 'info-box ' + (t.criticality === 'alta' ? 'red' : t.criticality === 'baixa' ? 'green' : 'orange');
   box.style.marginTop = '1rem';
-  box.innerHTML = `<span class="info-box-icon">${dot(c.tone)}</span>
+  box.innerHTML = `<span class="info-box-icon">${ico(t.criticality === 'alta' ? 'alerta' : 'relogio', 16)}</span>
     <div><strong>${esc(t.label)} — criticidade ${c.label.toLowerCase()}.</strong> Prazo de <strong>${c.hours} horas</strong> para tratativa.
     ${nomeSup ? 'Responsável: <strong>' + esc(nomeSup) + '</strong>.' : ''}</div>`;
 }
@@ -1036,8 +1036,8 @@ function renderOccList() {
                            : `<span class="badge badge-gray">Aguardando</span>`)
             : `<span class="badge badge-green"> Concluído</span>`}
           ${isAdmin() ? `<div class="admin-acts">
-            ${o.status === 'open' ? `<button class="btn-icon" title="Trocar responsável" onclick="openReassign('${o.id}')"></button>` : ''}
-            <button class="btn-icon del" title="Excluir ponto" onclick="openDeleteOcc('${o.id}')"></button>
+            ${o.status === 'open' ? `<button class="btn-icon" title="Trocar responsável" onclick="openReassign('${o.id}')">${ico('troca', 14)}</button>` : ''}
+            <button class="btn-icon del" title="Excluir ponto" onclick="openDeleteOcc('${o.id}')">${ico('lixeira', 14)}</button>
           </div>` : ''}
         </div>
       </div>
@@ -1765,7 +1765,7 @@ function renderElections() {
           <div class="list-avatar emp">${esc(initials(c.name))}</div>
           <div class="list-body"><div class="list-name">${esc(c.name)}</div>
           <div class="list-meta">${esc(c.shift)} · ${esc(c.sector || '')} · ${ico('urna',12)} ${tally[c.id] || 0} voto${(tally[c.id] || 0) !== 1 ? 's' : ''}</div></div>
-          ${admin ? `<button class="btn-ghost danger" onclick="openExclude('${c.id}')"></button>` : ''}
+          ${admin ? `<button class="btn-ghost danger" onclick="openExclude('${c.id}')">${ico('lixeira', 13)} Remover</button>` : ''}
         </div>`).join('') : noData('Nenhum candidato cadastrado. Use "Adicionar candidato".')}
       </div>
     </div>`;
@@ -1989,7 +1989,7 @@ function renderQrList() {
     try { svg = QRCode.toSVG(url, { size: 168 }); }
     catch (e) { svg = '<div style="padding:2rem;color:var(--red);font-size:12px">URL muito longa</div>'; }
     return `<div class="qr-card">
-      <button class="btn-icon del qr-del" onclick="removeQr('${q.id}')"></button>
+      <button class="btn-icon del qr-del" title="Excluir" onclick="removeQr('${q.id}')">${ico('lixeira', 13)}</button>
       <div class="qr-card-label">${esc(q.label)}</div>
       <div class="qr-card-meta">${esc(q.cd)}${q.sector ? ' · ' + esc(q.sector) : ''}<br>${PURPOSE[q.purpose] || q.purpose}</div>
       <div class="qr-img" id="qrimg-${q.id}">${svg}</div>
@@ -2457,8 +2457,8 @@ function renderCfgUsers() {
           <span class="badge ${u.role === 'admin' ? 'badge-gray' : u.role === 'gerente' ? 'badge-purple' : u.role === 'coordenador' ? 'badge-blue' : 'badge-green'}">${ROLE_LABEL[u.role]}</span></div>
         <div class="list-meta">${ico('chave',12)} ${esc(u.email || 'sem e-mail de login')} · Matrícula ${esc(u.matricula)} · ${esc(u.cd)}</div>
       </div>
-      <button class="btn-icon" onclick="openUserModal('${u.id}')"></button>
-      ${u.id !== 'u0' ? `<button class="btn-icon del" onclick="removeUser('${u.id}')"></button>` : ''}
+      <button class="btn-icon" title="Editar" onclick="openUserModal('${u.id}')">${ico('lapis', 14)}</button>
+      ${u.id !== 'u0' ? `<button class="btn-icon del" title="Remover" onclick="removeUser('${u.id}')">${ico('lixeira', 14)}</button>` : ''}
     </div>`).join('') || noData('Nenhum gestor neste CD.');
 }
 function updateRoleHint() {
@@ -2472,7 +2472,7 @@ function openUserModal(id) {
   S._editUser = id || null;
   const u = id ? byId(M.profiles, id) : null;
   $('modal-user-title').innerHTML = (u ? ico('usuario',17) + ' Editar Gestor' : ico('usuario',17) + ' Novo Gestor') +
-    ' <button class="modal-close" onclick="closeModal(\'modal-user\')"></button>';
+    ` <button class="modal-close" onclick="closeModal('modal-user')">${ico('fechar', 15)}</button>`;
   fillSelect('usr-cd', [{ value: REGIONAL, label: 'Regional — todos os CDs' }, ...CDS.map(c => ({ value: c, label: c }))], u ? u.cd : CDS[0]);
   $('usr-name').value = u ? u.name : '';
   $('usr-matricula').value = u ? u.matricula : '';
@@ -2570,8 +2570,8 @@ function renderCfgEmployees() {
           <div class="list-body"><div class="list-name">${esc(e.name)}
             <span class="cd-tag">${esc(e.cd.replace('CD ', ''))}</span></div>
             <div class="list-meta">Matrícula ${esc(e.matricula)} · ${esc(e.job_title || 'sem função')} · ${esc(e.shift)} · ${esc(e.sector)}${e.admission_date ? ' · desde ' + fmtDateISO(e.admission_date) : ''}</div></div>
-          <button class="btn-icon" onclick="openEmpModal('${e.id}')"></button>
-          <button class="btn-icon del" onclick="removeEmp('${e.id}')"></button>
+          <button class="btn-icon" title="Editar" onclick="openEmpModal('${e.id}')">${ico('lapis', 14)}</button>
+          <button class="btn-icon del" title="Remover" onclick="removeEmp('${e.id}')">${ico('lixeira', 14)}</button>
         </div>`).join('')}</div>`
     : emptyBox('usuarios', 'Nenhum colaborador encontrado', 'Cadastre ou importe a lista de colaboradores ativos.');
 }
@@ -2579,7 +2579,7 @@ function openEmpModal(id) {
   S._editEmp = id || null;
   const e = id ? byId(M.employees, id) : null;
   $('modal-emp-title').innerHTML = (e ? ico('usuario',17) + ' Editar Colaborador' : ico('usuario',17) + ' Novo Colaborador') +
-    ' <button class="modal-close" onclick="closeModal(\'modal-emp\')"></button>';
+    ` <button class="modal-close" onclick="closeModal('modal-emp')">${ico('fechar', 15)}</button>`;
   const cdsEmp = [{ value: REGIONAL, label: 'Regional — atua em todos os CDs' },
                   ...scopeCds().map(c => ({ value: c, label: c }))];
   fillSelect('emp-cd', cdsEmp, e ? e.cd : currentCd());
@@ -2763,7 +2763,7 @@ function renderCfgEmails() {
         <span class="evt-chip warn ${e.on_warning ? 'on' : ''}" onclick="toggleEvt('${e.id}','on_warning')">12h</span>
         <span class="evt-chip exp ${e.on_expired ? 'on' : ''}"  onclick="toggleEvt('${e.id}','on_expired')">Vencido</span>
       </div>
-      <button class="btn-icon del" onclick="removeEmail('${e.id}')"></button>
+      <button class="btn-icon del" title="Remover" onclick="removeEmail('${e.id}')">${ico('lixeira', 14)}</button>
     </div>`).join('') : noData('Nenhum destinatário cadastrado.');
 }
 function openEmailModal() {
@@ -2829,7 +2829,7 @@ function renderCfgLogThemes() {
         <option value="">— sem supervisor —</option>
         ${sups.map(u => `<option value="${u.id}" ${t.supervisor_id === u.id ? 'selected' : ''}>${ico('usuario',12)} ${esc(u.name)}</option>`).join('')}
       </select>
-      <button class="btn-icon del" onclick="removeLogTheme(${i})"></button>
+      <button class="btn-icon del" title="Remover tema" onclick="removeLogTheme(${i})">${ico('lixeira', 14)}</button>
     </div></div>`;
   }).join('') || noData('Nenhum tema cadastrado para este CD.');
 }
@@ -2880,7 +2880,7 @@ function renderCfgSurvThemes() {
         </div>
         <input class="theme-editor-name-input" value="${esc(t.label)}" onclick="event.stopPropagation()" oninput="S.draftSurvThemes[${ti}].label=this.value">
         <span style="font-size:11px;color:var(--text3)">${(t.questions || []).length} pergunta${(t.questions || []).length !== 1 ? 's' : ''}</span>
-        <button class="btn-icon del" onclick="event.stopPropagation();removeSurvTheme(${ti})"></button>
+        <button class="btn-icon del" title="Remover tema" onclick="event.stopPropagation();removeSurvTheme(${ti})">${ico('lixeira', 14)}</button>
         <span class="theme-editor-toggle">▾</span>
       </div>
       <div class="theme-editor-body" id="sv-${ti}">
@@ -2888,7 +2888,7 @@ function renderCfgSurvThemes() {
           <div class="question-editor-row">
             <span class="qe-num">${qi + 1}.</span>
             <input value="${esc(q)}" oninput="S.draftSurvThemes[${ti}].questions[${qi}]=this.value" placeholder="Digite a pergunta...">
-            <button class="btn-icon del" onclick="removeSurvQuestion(${ti},${qi})"></button>
+            <button class="btn-icon del" title="Remover pergunta" onclick="removeSurvQuestion(${ti},${qi})">${ico('lixeira', 13)}</button>
           </div>`).join('')}
         <button class="btn-secondary" style="font-size:12px;padding:7px 14px;margin-top:6px" onclick="addSurvQuestion(${ti})">+ Adicionar Pergunta</button>
       </div>
