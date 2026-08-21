@@ -244,6 +244,13 @@ async function loadAll() {
     'survey_rounds', 'survey_responses', 'survey_participations', 'log_themes', 'survey_theme_versions',
     'notify_emails', 'qr_codes', 'exclusion_log'];
   for (const k of t) M[k] = await DB.select(k);
+
+  // Online, os temas vêm de uma view que já traz o nome do responsável.
+  // O colaborador é anônimo e não pode ler a tabela de gestores.
+  if (DB.online) {
+    const via = await DB.select('v_log_themes');
+    if (via.length) M.log_themes = via;
+  }
   const st = await DB.select('app_settings');
   M.settings = st[0] || {};
   await refreshVoteCache();
@@ -350,7 +357,17 @@ const canTreat = o => {
 const isAdmin  = () => S.user && S.user.role === 'admin';
 
 /* ══════════ NAVEGAÇÃO ══════════ */
+/* O colaborador só usa Início e Registrar. Pontos e painéis
+   são de quem está autenticado. */
+function applyNavAccess() {
+  const logado = !!S.user;
+  const nl = $('nl-pontos');
+  if (nl) nl.classList.toggle('hidden', !logado);
+}
+
 function goPage(id) {
+  // acesso direto pela URL ou por atalho antigo cai na home
+  if (id === 'pontos' && !S.user) { id = 'home'; }
   S.page = id;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
@@ -360,6 +377,7 @@ function goPage(id) {
   if (id === 'registrar') renderCanal();
   if (id === 'pontos') renderPontos();
   if (id === 'gestor' && S.user) renderDash();
+  applyNavAccess();
   refreshBanner();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -603,13 +621,14 @@ function selLogTheme(id) {
   const t = byId(M.log_themes, id);
   const c = CRIT[t.criticality] || CRIT.media;
   const sup = byId(M.profiles, t.supervisor_id);
+  const nomeSup = sup ? sup.name : (t.supervisor_name || '');
   const box = $('pp2-selected');
   box.classList.remove('hidden');
   box.className = 'info-box ' + (t.criticality === 'alta' ? 'red' : t.criticality === 'baixa' ? 'green' : 'orange');
   box.style.marginTop = '1rem';
   box.innerHTML = `<span class="info-box-icon">${dot(c.tone)}</span>
     <div><strong>${esc(t.label)} — criticidade ${c.label.toLowerCase()}.</strong> Prazo de <strong>${c.hours} horas</strong> para tratativa.
-    ${sup ? 'Responsável: <strong>' + esc(sup.name) + '</strong>.' : ''}</div>`;
+    ${nomeSup ? 'Responsável: <strong>' + esc(nomeSup) + '</strong>.' : ''}</div>`;
 }
 
 function pontoStep(n) {
@@ -621,17 +640,21 @@ function pontoStep(n) {
   if (n === 2) renderPontoThemes();
   if (n === 3) {
     const sup = t ? byId(M.profiles, t.supervisor_id) : null;
+    const nomeSup3 = sup ? sup.name : (t && t.supervisor_name) || '';
     $('pp3-badges').innerHTML =
       `<span class="badge badge-blue">${t ? temaIco(t.icon, 14) : ''} ${esc(t ? t.label : '')}</span>` +
       `<span class="badge ${c.badge}">${dot(c.tone)} ${c.label} · ${c.hours}h</span>` +
-      (sup ? `<span class="badge badge-gray">${ico('usuario',12)} ${esc(sup.name)}</span>` : '');
+      (nomeSup3 ? `<span class="badge badge-gray">${ico('usuario',12)} ${esc(nomeSup3)}</span>` : '');
   }
   if (n === 4) {
     const sup = t ? byId(M.profiles, t.supervisor_id) : null;
-    $('pp4-author').textContent  = `${S.pEmp.name} (${S.pEmp.matricula})`;
-    $('pp4-tema').textContent    = `${temaIco(t.icon, 15)} ${t.label}`;
-    $('pp4-crit').textContent    = `${dot(c.tone)} ${c.label} — prazo de ${c.hours} horas (definido pelo tema)`;
-    $('pp4-sup').textContent     = sup ? `${sup.name} (${ROLE_LABEL[sup.role]})` : 'Não definido';
+    $('pp4-author').textContent = `${S.pEmp.name} (${S.pEmp.matricula})`;
+    $('pp4-tema').innerHTML     = `${temaIco(t.icon, 15)} ${esc(t.label)}`;
+    $('pp4-crit').innerHTML     = `${dot(c.tone)} ${c.label} — prazo de ${c.hours} horas <span class="text-muted">(definido pelo tema)</span>`;
+    // o nome do responsável só aparece se o servidor tiver informado
+    const nomeSup = sup ? `${sup.name} (${ROLE_LABEL[sup.role]})` : (t.supervisor_name || '');
+    $('pp4-sup-box').classList.toggle('hidden', !nomeSup);
+    $('pp4-sup').textContent    = nomeSup;
     $('pp4-subject').textContent = $('pp-subject').value.trim();
     $('pp4-desc').textContent    = $('pp-desc').value.trim();
   }
@@ -672,6 +695,8 @@ async function submitPonto() {
     (sup ? ` Encaminhado para <strong>${esc(sup.name)}</strong>.` : '');
   ['pp-1', 'pp-2', 'pp-3', 'pp-4'].forEach(i => $(i).classList.add('hidden'));
   $('pp-ok').classList.remove('hidden');
+  // o botão de acompanhar só faz sentido para quem trata os pontos
+  $('pp-ok-ver').classList.toggle('hidden', !S.user);
   refreshBanner();
 }
 
@@ -1142,7 +1167,12 @@ async function confirmDeleteOcc() {
 }
 
 function refreshBanner() {
-  const l = S.user ? visibleOccurrences() : M.occurrences.filter(o => o.cd === S.cd);
+  if (!S.user) {   // colaborador não acompanha prazos
+    $('attn-banner').style.display = 'none';
+    $('nav-dot').className = 'nav-dot';
+    return;
+  }
+  const l = visibleOccurrences();
   const exp = l.filter(o => o.status === 'open' && remaining(o) <= 0).length;
   const warn = l.filter(o => o.status === 'open' && remaining(o) > 0 && remaining(o) < 12 * H).length;
   const b = $('attn-banner');
@@ -1176,7 +1206,7 @@ async function doLogin() {
     $('nav-user-nm').textContent = u.name.split(' ')[0];
     $('nav-user-rl').textContent = ROLE_LABEL[u.role];
     $('dash-user-info').textContent = `${u.name} · ${ROLE_LABEL[u.role]} · ${u.cd}`;
-    buildDashTabs(); renderDash(); refreshBanner();
+    buildDashTabs(); renderDash(); applyNavAccess(); refreshBanner();
     toast('Bem-vindo(a), ' + u.name.split(' ')[0] + '!', 'blue');
   } catch (e) {
     err.textContent = e.message || 'Não foi possível entrar.';
@@ -1192,6 +1222,7 @@ async function doLogout() {
   $('gestor-login').classList.remove('hidden');
   $('nav-user').classList.add('hidden');
   await loadAll();
+  applyNavAccess();
   goPage('home');
 }
 function buildDashTabs() {
@@ -3347,6 +3378,7 @@ function showConnectionState(online, err) {
   }
 
   S.conn.online = online; S.conn.error = err || null;
+  applyNavAccess();
   const jumped = applyDeepLink();
   if (!jumped) renderHome();
   showConnectionState(online, err);
