@@ -269,20 +269,37 @@ function fillSelect(id, options, selected) {
 }
 
 /* ══════════ CARGA ══════════ */
-async function loadAll() {
-  const t = ['profiles', 'employees', 'candidates', 'elections', 'votes', 'occurrences',
-    'survey_rounds', 'survey_responses', 'survey_participations', 'log_themes', 'survey_theme_versions',
-    'notify_emails', 'qr_codes', 'exclusion_log'];
-  for (const k of t) M[k] = await DB.select(k);
+/* O que cada perfil precisa de fato.
+   O colaborador anônimo só usa os três canais — as tabelas de gestão
+   voltariam vazias pela RLS, mas cada uma custa uma ida ao servidor.
+   No celular, em 4G, é isso que fazia a tela demorar a abrir. */
+const TABELAS_PUBLICAS = ['log_themes', 'elections', 'candidates',
+                          'survey_rounds', 'survey_theme_versions'];
+const TABELAS_GESTAO   = ['profiles', 'employees', 'votes', 'occurrences',
+                          'survey_responses', 'survey_participations',
+                          'notify_emails', 'qr_codes', 'exclusion_log'];
 
-  // Online, os temas vêm de uma view que já traz o nome do responsável.
-  // O colaborador é anônimo e não pode ler a tabela de gestores.
-  if (DB.online) {
-    const via = await DB.select('v_log_themes');
-    if (via.length) M.log_themes = via;
-  }
-  const st = await DB.select('app_settings');
-  M.settings = st[0] || {};
+async function loadAll({ completo = true } = {}) {
+  const t = completo ? [...TABELAS_PUBLICAS, ...TABELAS_GESTAO] : [...TABELAS_PUBLICAS];
+  // em paralelo: antes eram 15 requisições em fila, uma esperando a outra
+  const [dados, temas, conf] = await Promise.all([
+    Promise.all(t.map(k => DB.select(k).then(r => [k, r]).catch(() => [k, []]))),
+    // Online, os temas vêm de uma view que já traz o nome do coordenador.
+    DB.online ? DB.select('v_log_themes').catch(() => []) : Promise.resolve([]),
+    DB.select('app_settings').catch(() => []),
+  ]);
+  dados.forEach(([k, r]) => { M[k] = r; });
+  if (!completo) TABELAS_GESTAO.forEach(k => { if (!M[k]) M[k] = []; });
+  if (temas.length) M.log_themes = temas;
+  M.settings = conf[0] || {};
+  await refreshVoteCache();
+}
+
+/* Completa o que ficou de fora quando um gestor faz login. */
+async function loadGestao() {
+  const r = await Promise.all(
+    TABELAS_GESTAO.map(k => DB.select(k).then(x => [k, x]).catch(() => [k, []])));
+  r.forEach(([k, x]) => { M[k] = x; });
   await refreshVoteCache();
 }
 
@@ -299,13 +316,113 @@ const employeeByMat = (mat, cd) => M.employees.find(e =>
 
 /* Busca a matrícula. Online usa a função lookup_employee() do banco,
    que devolve uma linha por vez — a base de colaboradores nunca é
-   exposta para visitantes anônimos. */
+   exposta para visitantes anônimos.
+
+   Guarda o que já achou: apagar um dígito e digitar de novo é o
+   movimento mais comum no celular, e não precisa de nova viagem. */
+const _cacheMat = new Map();
+
 async function lookupEmployee(mat, cd) {
-  if (!DB.online) return employeeByMat(mat, cd);
-  try {
-    const r = await DB.rpc('lookup_employee', { p_matricula: String(mat).trim(), p_cd: cd || null });
-    return (r && r.length) ? r[0] : null;
-  } catch (e) { return null; }
+  const chave = (cd || '*') + '|' + String(mat).trim();
+  if (_cacheMat.has(chave)) return _cacheMat.get(chave);
+  let r;
+  if (!DB.online) {
+    r = employeeByMat(mat, cd);
+  } else {
+    try {
+      const x = await DB.rpc('lookup_employee', { p_matricula: String(mat).trim(), p_cd: cd || null });
+      r = (x && x.length) ? x[0] : null;
+    } catch (e) {
+      // rede fora é outra coisa: devolve undefined e NÃO guarda no cache,
+      // para não dizer ao colaborador que ele não está cadastrado
+      return undefined;
+    }
+  }
+  if (_cacheMat.size > 200) _cacheMat.clear();
+  _cacheMat.set(chave, r);
+  return r;
+}
+
+/* ---- Campo de matrícula: um único caminho para os três canais ----
+   Antes cada tecla disparava a busca, e o "não achei" disparava uma
+   segunda para descobrir o CD — cinco viagens para digitar 20001.
+   Agora espera a digitação parar e faz uma só. */
+const MAT_ESPERA = 220;   // ms de silêncio antes de ir ao servidor
+const _mat = {};          // estado por campo
+
+function campoMatricula(cfg) {
+  const { campo, dica, cartao, botao, meta, guardar } = cfg;
+  const est = _mat[campo] || (_mat[campo] = { t: null, seq: 0 });
+  const v = $(campo).value.trim();
+  const inp = $(campo), hint = $(dica), card = $(cartao);
+
+  clearTimeout(est.t);
+  guardar(null);
+  $(botao).disabled = true;
+
+  if (v.length < 3) {
+    card.classList.add('hidden');
+    hint.textContent = 'Digite sua matrícula'; hint.className = 'field-hint';
+    inp.className = 'form-input';
+    return;
+  }
+
+  const chave = (S.cd || '*') + '|' + v;
+  const emCache = _cacheMat.has(chave);
+  if (!emCache) {
+    hint.textContent = 'Procurando...'; hint.className = 'field-hint';
+    inp.className = 'form-input';
+  }
+
+  const meu = ++est.seq;
+  const buscar = async () => {
+    const emp = await lookupEmployee(v, S.cd);
+    // chegou atrasada: outra tecla já foi digitada
+    if (meu !== est.seq || $(campo).value.trim() !== v) return;
+
+    if (emp === undefined) {          // não deu para consultar
+      card.classList.remove('hidden'); card.className = 'emp-card err';
+      card.innerHTML = `<div class="emp-avatar">${ico('alerta', 15)}</div><div>
+        <div class="emp-name">Sem conexão</div>
+        <div class="emp-meta">Não deu para conferir a matrícula agora.
+          <button class="link-btn" onclick="${cfg.repetir}()">Tentar de novo</button></div></div>`;
+      hint.textContent = ''; inp.className = 'form-input err';
+      return;
+    }
+
+    if (!emp) {
+      const outro = await lookupEmployee(v, null);
+      if (meu !== est.seq || $(campo).value.trim() !== v) return;
+      card.classList.remove('hidden'); card.className = 'emp-card err';
+      card.innerHTML = `<div class="emp-avatar"></div><div>
+        <div class="emp-name">Matrícula não encontrada</div>
+        <div class="emp-meta">${outro
+          ? 'Esta matrícula pertence ao ' + esc(outro.cd) + '. Troque o CD na tela inicial.'
+          : 'Procure a supervisão para cadastro.'}</div></div>`;
+      hint.textContent = ''; inp.className = 'form-input err';
+      return;
+    }
+
+    guardar(emp);
+    card.classList.remove('hidden'); card.className = 'emp-card';
+    card.innerHTML = `<div class="emp-avatar">${esc(initials(emp.name))}</div><div>
+      <div class="emp-name">${esc(emp.name)}</div>
+      <div class="emp-meta">${esc(meta(emp))}</div></div>`;
+    hint.textContent = 'Identificado'; hint.className = 'field-hint ok';
+    inp.className = 'form-input ok';
+    $(botao).disabled = false;
+  };
+
+  // já em cache responde na hora; o resto espera a digitação parar
+  if (emCache) buscar(); else est.t = setTimeout(buscar, MAT_ESPERA);
+}
+
+/* Enter avança assim que o nome aparece — menos um toque no celular. */
+function matEnter(ev, botao) {
+  if (ev.key !== 'Enter') return;
+  ev.preventDefault();
+  const b = $(botao);
+  if (b && !b.disabled) b.click();
 }
 
 /* CD efetivo do colaborador: quem é Regional usa o CD escolhido na tela. */
@@ -583,38 +700,19 @@ function startPonto() {
   $('pp2-selected').classList.add('hidden');
   $('pp1-next').disabled = true; $('pp2-next').disabled = true;
   $('pp-desc-cnt').textContent = '0 / 300';
+  setTimeout(() => $('pp-matricula').focus(), 60);
   $('pp-mat-hint').textContent = 'Digite sua matrícula';
   $('pp-mat-hint').className = 'field-hint';
   $('pp-matricula').className = 'form-input';
   setPontoProgress(1);
 }
 
-async function checkPontoMat() {
-  const v = $('pp-matricula').value.trim();
-  const card = $('pp-emp-card'), hint = $('pp-mat-hint'), inp = $('pp-matricula');
-  if (v.length < 3) {
-    card.classList.add('hidden'); $('pp1-next').disabled = true;
-    hint.textContent = 'Digite sua matrícula'; hint.className = 'field-hint';
-    inp.className = 'form-input'; S.pEmp = null; return;
-  }
-  const emp = await lookupEmployee(v, S.cd);
-  if (!emp) {
-    const other = await lookupEmployee(v, null);
-    card.classList.remove('hidden'); card.className = 'emp-card err';
-    card.innerHTML = `<div class="emp-avatar"></div><div>
-      <div class="emp-name">Matrícula não encontrada</div>
-      <div class="emp-meta">${other ? 'Esta matrícula pertence ao ' + esc(other.cd) + '. Troque o CD na tela inicial.' : 'Procure a supervisão para cadastro.'}</div></div>`;
-    hint.textContent = ''; inp.className = 'form-input err';
-    $('pp1-next').disabled = true; S.pEmp = null; return;
-  }
-  S.pEmp = emp;
-  card.classList.remove('hidden'); card.className = 'emp-card';
-  card.innerHTML = `<div class="emp-avatar">${esc(initials(emp.name))}</div><div>
-    <div class="emp-name">${esc(emp.name)}</div>
-    <div class="emp-meta">${esc(emp.shift)} · ${esc(emp.sector)} · ${esc(emp.cd)}${emp.cd === REGIONAL ? ' (registrando em ' + esc(S.cd) + ')' : ''}</div></div>`;
-  hint.textContent = ' Identificado'; hint.className = 'field-hint ok';
-  inp.className = 'form-input ok';
-  $('pp1-next').disabled = false;
+function checkPontoMat() {
+  campoMatricula({
+    campo: 'pp-matricula', repetir: 'checkPontoMat', dica: 'pp-mat-hint', cartao: 'pp-emp-card', botao: 'pp1-next',
+    meta: e => `${e.shift} · ${e.sector} · ${e.cd}` + (e.cd === REGIONAL ? ' (registrando em ' + S.cd + ')' : ''),
+    guardar: e => { S.pEmp = e; },
+  });
 }
 
 function setPontoProgress(cur) {
@@ -755,33 +853,12 @@ function startPesquisaFlow() {
   buildSurvProgress();
 }
 
-async function checkSurvMat() {
-  const v = $('sv-matricula').value.trim();
-  const card = $('sv-emp-card'), hint = $('sv-mat-hint'), inp = $('sv-matricula');
-  const fail = (title, msg) => {
-    card.classList.remove('hidden'); card.className = 'emp-card err';
-    card.innerHTML = `<div class="emp-avatar"></div><div><div class="emp-name">${esc(title)}</div>
-      <div class="emp-meta">${esc(msg)}</div></div>`;
-    hint.textContent = ''; inp.className = 'form-input err';
-    $('sv1-next').disabled = true; S.sEmp = null;
-  };
-  if (v.length < 3) {
-    card.classList.add('hidden'); $('sv1-next').disabled = true;
-    hint.textContent = 'Digite sua matrícula'; hint.className = 'field-hint';
-    inp.className = 'form-input'; S.sEmp = null; return;
-  }
-  const emp = await lookupEmployee(v, S.cd);
-  if (!emp) { fail('Matrícula não encontrada', 'Procure a supervisão para verificar seu cadastro.'); return; }
-  const already = await alreadyParticipated(S.sRound.id, emp.matricula);
-  if (already) { fail('Você já participou desta rodada', 'Cada colaborador responde uma vez por rodada. Obrigado pela participação!'); return; }
-  S.sEmp = emp;
-  card.classList.remove('hidden'); card.className = 'emp-card';
-  card.innerHTML = `<div class="emp-avatar">${esc(initials(emp.name))}</div><div>
-    <div class="emp-name">${esc(emp.name)}</div>
-    <div class="emp-meta">${esc(emp.job_title || emp.sector)} · ${esc(emp.shift)}</div></div>`;
-  hint.textContent = ' Identificado'; hint.className = 'field-hint ok';
-  inp.className = 'form-input ok';
-  $('sv1-next').disabled = false;
+function checkSurvMat() {
+  campoMatricula({
+    campo: 'sv-matricula', repetir: 'checkSurvMat', dica: 'sv-mat-hint', cartao: 'sv-emp-card', botao: 'sv1-next',
+    meta: e => `${e.job_title || e.sector} · ${e.shift}`,
+    guardar: e => { S.sEmp = e; },
+  });
 }
 function survThemes() {
   const v = M.survey_theme_versions.find(x => x.version === S.sRound.theme_version) || currentVersion();
@@ -894,33 +971,12 @@ function startVotoFlow() {
   $('voto-1').classList.remove('hidden');
 }
 
-async function checkVoteMat() {
-  const v = $('vt-matricula').value.trim();
-  const card = $('vt-emp-card'), hint = $('vt-mat-hint'), inp = $('vt-matricula');
-  const fail = (title, msg) => {
-    card.classList.remove('hidden'); card.className = 'emp-card err';
-    card.innerHTML = `<div class="emp-avatar"></div><div><div class="emp-name">${esc(title)}</div>
-      <div class="emp-meta">${esc(msg)}</div></div>`;
-    hint.textContent = ''; inp.className = 'form-input err';
-    $('vt1-next').disabled = true; S.vEmp = null;
-  };
-  if (v.length < 3) {
-    card.classList.add('hidden'); $('vt1-next').disabled = true;
-    hint.textContent = 'Digite sua matrícula'; hint.className = 'field-hint';
-    inp.className = 'form-input'; S.vEmp = null; return;
-  }
-  const emp = await lookupEmployee(v, S.cd);
-  if (!emp) { fail('Matrícula não encontrada', 'Procure a supervisão para verificar seu cadastro.'); return; }
-  const already = await alreadyVoted(S.vElection.id, emp.matricula);
-  if (already) { fail('Você já votou nesta eleição', 'Em caso de erro, procure o administrador — o voto pode ser liberado uma única vez.'); return; }
-  S.vEmp = emp;
-  card.classList.remove('hidden'); card.className = 'emp-card';
-  card.innerHTML = `<div class="emp-avatar">${esc(initials(emp.name))}</div><div>
-    <div class="emp-name">${esc(emp.name)}</div>
-    <div class="emp-meta">${esc(emp.shift)} · ${esc(emp.sector)}</div></div>`;
-  hint.textContent = ' Identificado'; hint.className = 'field-hint ok';
-  inp.className = 'form-input ok';
-  $('vt1-next').disabled = false;
+function checkVoteMat() {
+  campoMatricula({
+    campo: 'vt-matricula', repetir: 'checkVoteMat', dica: 'vt-mat-hint', cartao: 'vt-emp-card', botao: 'vt1-next',
+    meta: e => `${e.shift} · ${e.sector}`,
+    guardar: e => { S.vEmp = e; },
+  });
 }
 
 function votoStep(n) {
@@ -1556,7 +1612,7 @@ async function doLogout() {
   $('gestor-dash').classList.add('hidden');
   $('gestor-login').classList.remove('hidden');
   $('nav-user').classList.add('hidden');
-  await loadAll();
+  await loadAll({ completo: !DB.online });
   applyNavAccess();
   goPage('home');
 }
@@ -4048,7 +4104,9 @@ function showConnectionState(online, err) {
     S.pontosCd = S.dashCd;
   }
 
-  try { await loadAll(); } catch (e) { err = err || e.message; }
+  // offline o custo é zero (localStorage), então só enxuga quando há rede
+  try { await loadAll({ completo: !!S.user || !DB.online }); }
+  catch (e) { err = err || e.message; }
 
   if (S.user) {
     $('gestor-login').classList.add('hidden');

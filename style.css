@@ -993,3 +993,11 @@ button .ic,.badge .ic,.list-meta .ic,.occ-meta .ic{margin-right:1px}
   .pend-head { flex-wrap: wrap; }
   .pend-head .btn-ghost { margin-left: 0; width: 100%; margin-top: 8px; }
 }
+
+/* ---- Repetir a busca da matrícula quando a rede cai ---- */
+.link-btn {
+  background: none; border: 0; padding: 0;
+  margin-left: 4px;
+  color: var(--blue2); font: inherit; font-weight: 600;
+  text-decoration: underline; cursor: pointer;
+}
