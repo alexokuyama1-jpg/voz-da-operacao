@@ -53,7 +53,7 @@ const DB = (function () {
         { id: 'u4', matricula: '10004', name: 'William Moreira',   password: 'muda@2025',    role: 'coordenador', cd: 'CD Londrina', email: 'william.moreira@br.lactalis.com',    active: true },
         { id: 'u5', matricula: '10005', name: 'Aliffer Almeida',   password: 'muda@2025',    role: 'supervisor',  cd: 'CD Carambeí', email: 'aliffer.almeida@br.lactalis.com',    active: true },
         { id: 'u6', matricula: '10006', name: 'Marcos Vinícius',   password: 'muda@2025',    role: 'supervisor',  cd: 'CD Carambeí', email: 'marcos.vinicius@br.lactalis.com',     active: true },
-        { id: 'u7', matricula: '10007', name: 'Renata Prado',      password: 'muda@2025',    role: 'supervisor',  cd: 'CD Curitiba', email: 'renata.prado@br.lactalis.com',     active: true },
+        { id: 'u7', matricula: '10007', name: 'Renata Prado',      password: 'muda@2025',    role: 'coordenador', cd: 'CD Curitiba', email: 'renata.prado@br.lactalis.com',     active: true },
         { id: 'u8', matricula: '10008', name: 'Diego Ramos',       password: 'muda@2025',    role: 'supervisor',  cd: 'CD Londrina', email: 'diego.ramos@br.lactalis.com',      active: true },
       ],
       employees: [
@@ -68,25 +68,25 @@ const DB = (function () {
         { id: 'e9', matricula: '20009', name: 'Simone Alves',  cd: 'CD Londrina', shift: '2º Turno', sector: 'Câmara Fria', job_title: 'Conferente',               admission_date: '2022-05-16', active: true },
       ],
       log_themes: [
-        { id: 't1',  label: 'Limpeza',       icon: '🧹', cd: 'CD Carambeí', supervisor_id: 'u5', criticality: 'baixa', active: true },
-        { id: 't2',  label: 'Organização',   icon: '📦', cd: 'CD Carambeí', supervisor_id: 'u5', criticality: 'baixa', active: true },
-        { id: 't3',  label: 'Equipamentos',  icon: '🔧', cd: 'CD Carambeí', supervisor_id: 'u6', criticality: 'alta',  active: true },
-        { id: 't4',  label: 'Segurança',     icon: '🛡️', cd: 'CD Carambeí', supervisor_id: 'u6', criticality: 'alta',  active: true },
-        { id: 't5',  label: 'Manutenção',    icon: '🔨', cd: 'CD Carambeí', supervisor_id: 'u6', criticality: 'alta',  active: true },
-        { id: 't6',  label: 'Comunicação',   icon: '📢', cd: 'CD Carambeí', supervisor_id: 'u5', criticality: 'media', active: true },
-        { id: 't7',  label: 'Abastecimento', icon: '🚛', cd: 'CD Carambeí', supervisor_id: 'u5', criticality: 'media', active: true },
-        { id: 't8',  label: 'Limpeza',       icon: '🧹', cd: 'CD Curitiba', supervisor_id: 'u7', criticality: 'baixa', active: true },
-        { id: 't9',  label: 'Equipamentos',  icon: '🔧', cd: 'CD Curitiba', supervisor_id: 'u7', criticality: 'alta',  active: true },
-        { id: 't10', label: 'Segurança',     icon: '🛡️', cd: 'CD Curitiba', supervisor_id: 'u7', criticality: 'alta',  active: true },
-        { id: 't11', label: 'Limpeza',       icon: '🧹', cd: 'CD Londrina', supervisor_id: 'u8', criticality: 'baixa', active: true },
-        { id: 't12', label: 'Equipamentos',  icon: '🔧', cd: 'CD Londrina', supervisor_id: 'u8', criticality: 'alta',  active: true },
-        { id: 't13', label: 'Segurança',     icon: '🛡️', cd: 'CD Londrina', supervisor_id: 'u8', criticality: 'alta',  active: true },
+        { id: 't1',  label: 'Limpeza',       icon: '🧹', cd: 'CD Carambeí', supervisor_id: 'u2', criticality: 'baixa', sla_hours: 96, active: true },
+        { id: 't2',  label: 'Organização',   icon: '📦', cd: 'CD Carambeí', supervisor_id: 'u2', criticality: 'baixa', sla_hours: 96, active: true },
+        { id: 't3',  label: 'Equipamentos',  icon: '🔧', cd: 'CD Carambeí', supervisor_id: 'u3', criticality: 'alta', sla_hours: 48,  active: true },
+        { id: 't4',  label: 'Segurança',     icon: '🛡️', cd: 'CD Carambeí', supervisor_id: 'u3', criticality: 'alta', sla_hours: 48,  active: true },
+        { id: 't5',  label: 'Manutenção',    icon: '🔨', cd: 'CD Carambeí', supervisor_id: 'u3', criticality: 'alta', sla_hours: 48,  active: true },
+        { id: 't6',  label: 'Comunicação',   icon: '📢', cd: 'CD Carambeí', supervisor_id: 'u2', criticality: 'media', sla_hours: 72, active: true },
+        { id: 't7',  label: 'Abastecimento', icon: '🚛', cd: 'CD Carambeí', supervisor_id: 'u2', criticality: 'media', sla_hours: 72, active: true },
+        { id: 't8',  label: 'Limpeza',       icon: '🧹', cd: 'CD Curitiba', supervisor_id: 'u7', criticality: 'baixa', sla_hours: 96, active: true },
+        { id: 't9',  label: 'Equipamentos',  icon: '🔧', cd: 'CD Curitiba', supervisor_id: 'u7', criticality: 'alta', sla_hours: 48,  active: true },
+        { id: 't10', label: 'Segurança',     icon: '🛡️', cd: 'CD Curitiba', supervisor_id: 'u7', criticality: 'alta', sla_hours: 48,  active: true },
+        { id: 't11', label: 'Limpeza',       icon: '🧹', cd: 'CD Londrina', supervisor_id: 'u4', criticality: 'baixa', sla_hours: 96, active: true },
+        { id: 't12', label: 'Equipamentos',  icon: '🔧', cd: 'CD Londrina', supervisor_id: 'u4', criticality: 'alta', sla_hours: 48,  active: true },
+        { id: 't13', label: 'Segurança',     icon: '🛡️', cd: 'CD Londrina', supervisor_id: 'u4', criticality: 'alta', sla_hours: 48,  active: true },
       ],
       survey_theme_versions: [
         { id: 'v1', version: 1, created_at: Date.now(), description: 'Versão inicial · 5 temas · 25 perguntas', themes, is_current: true }
       ],
       notify_emails: [
-        { id: 'n1', name: 'Coordenação Carambeí', address: 'coordenacao.carambei@br.lactalis.com', cd: 'CD Carambeí', on_new: true, on_warning: true, on_expired: true },
+        { id: 'n1', name: 'Coordenação Carambeí', address: 'coordenacao.carambei@br.lactalis.com', cd: 'CD Carambeí', on_new: true, on_warning: true, on_expired: true, on_update: true, on_done: true },
       ],
       candidates: [], elections: [], votes: [], occurrences: [],
       survey_rounds: [], survey_responses: [], survey_participations: [],
@@ -314,6 +314,21 @@ const DB = (function () {
         }
       }
       return true;
+    },
+
+    /* ---------- Notificação por e-mail ----------
+       O navegador manda só o evento e o id. O conteúdo e os
+       destinatários são montados dentro da Edge Function. */
+    async notificar(evento, pontoId) {
+      if (!ONLINE || !pontoId) return { ok: false, motivo: 'offline' };
+      try {
+        const r = await sb.functions.invoke('notificar', { body: { evento, ponto_id: pontoId } });
+        if (r.error) { console.warn('[e-mail]', r.error.message); return { ok: false, motivo: r.error.message }; }
+        return r.data || { ok: true };
+      } catch (e) {
+        console.warn('[e-mail] falhou:', e.message);
+        return { ok: false, motivo: e.message };
+      }
     },
 
     /* ---------- Funções do servidor (RPC) ---------- */

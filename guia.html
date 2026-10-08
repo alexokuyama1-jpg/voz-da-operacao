@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guia do Usuário — Voz da Operação</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0a2540; --azul:#2563eb; --azul-claro:#eff6ff;
+  --verde:#16a34a; --verde-bg:#f0fdf4; --ambar:#d97706; --ambar-bg:#fffbeb;
+  --vermelho:#dc2626; --vermelho-bg:#fef2f2; --roxo:#7c3aed; --roxo-bg:#f5f3ff;
+  --txt:#0f172a; --txt2:#475569; --txt3:#94a3b8; --linha:#e2e8f0; --bg:#f6f8fb;
+}
+body{font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;background:var(--bg);
+  color:var(--txt);line-height:1.6;-webkit-text-size-adjust:100%}
+.ic{display:inline-block;vertical-align:-.14em;flex-shrink:0}
+
+/* ---------- capa ---------- */
+.capa{background:linear-gradient(180deg,#0a2540,#143a63);color:#fff;padding:52px 24px 46px;position:relative;overflow:hidden}
+.capa::after{content:'';position:absolute;width:420px;height:420px;border-radius:50%;
+  background:rgba(255,255,255,.04);top:-160px;right:-110px}
+.capa-in{max-width:860px;margin:0 auto;position:relative}
+.capa .marca{display:flex;align-items:center;gap:11px;margin-bottom:26px}
+.capa .logo{width:40px;height:40px;background:var(--azul);border-radius:11px;display:flex;align-items:center;justify-content:center}
+.capa .eyebrow{font-size:11px;font-weight:800;letter-spacing:1.4px;color:#7d93ad}
+.capa h1{font-size:clamp(2rem,6vw,2.9rem);font-weight:800;letter-spacing:-1.2px;line-height:1.08}
+.capa p{font-size:clamp(1rem,2.6vw,1.15rem);color:#a8bdd2;margin-top:13px;max-width:520px}
+.capa .meta{margin-top:26px;font-size:12.5px;color:#5a7390}
+
+/* ---------- navegação ---------- */
+.indice{background:#fff;border-bottom:1px solid var(--linha);position:sticky;top:0;z-index:50}
+.indice-in{max-width:860px;margin:0 auto;padding:0 24px;display:flex;gap:4px;overflow-x:auto}
+.indice a{padding:13px 13px;font-size:13px;font-weight:600;color:var(--txt2);text-decoration:none;
+  white-space:nowrap;border-bottom:2.5px solid transparent;transition:.15s}
+.indice a:hover{color:var(--azul)}
+
+main{max-width:860px;margin:0 auto;padding:36px 24px 70px}
+section{margin-bottom:46px;scroll-margin-top:60px}
+h2{font-size:1.55rem;font-weight:800;letter-spacing:-.5px;margin-bottom:6px;
+  display:flex;align-items:center;gap:11px}
+h2 .n{width:30px;height:30px;border-radius:9px;background:var(--azul);color:#fff;
+  font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sub{color:var(--txt2);font-size:1rem;margin-bottom:22px}
+h3{font-size:1.08rem;font-weight:700;margin:26px 0 9px;color:var(--txt)}
+p{margin-bottom:13px;color:var(--txt2)}
+strong{color:var(--txt);font-weight:700}
+
+.card{background:#fff;border:1px solid var(--linha);border-radius:14px;padding:20px 22px;margin-bottom:14px}
+.card h4{font-size:1rem;font-weight:700;margin-bottom:7px;display:flex;align-items:center;gap:9px}
+
+/* passos */
+.passos{counter-reset:p;list-style:none}
+.passos li{counter-increment:p;position:relative;padding-left:42px;margin-bottom:17px;color:var(--txt2)}
+.passos li::before{content:counter(p);position:absolute;left:0;top:-1px;width:27px;height:27px;
+  border-radius:50%;background:var(--azul-claro);color:var(--azul);font-size:12.5px;font-weight:800;
+  display:flex;align-items:center;justify-content:center}
+.passos li b{color:var(--txt)}
+
+/* avisos */
+.aviso{display:flex;gap:12px;padding:14px 17px;border-radius:11px;margin:15px 0;font-size:.93rem;line-height:1.55}
+.aviso .ic{margin-top:2px}
+.aviso.info{background:var(--azul-claro);color:#1e3a8a}
+.aviso.ok{background:var(--verde-bg);color:#14532d}
+.aviso.alerta{background:var(--ambar-bg);color:#78350f}
+.aviso.perigo{background:var(--vermelho-bg);color:#7f1d1d}
+.aviso.roxo{background:var(--roxo-bg);color:#4c1d95}
+
+/* tabelas */
+.tab-wrap{overflow-x:auto;border:1px solid var(--linha);border-radius:12px;margin:15px 0;background:#fff}
+table{width:100%;border-collapse:collapse;font-size:.9rem;min-width:420px}
+th{background:#f1f5f9;color:var(--navy);font-size:11px;text-transform:uppercase;letter-spacing:.6px;
+  font-weight:800;padding:11px 14px;text-align:left;white-space:nowrap}
+td{padding:11px 14px;border-top:1px solid var(--linha);color:var(--txt2)}
+td strong{color:var(--txt)}
+
+/* prazos */
+.prazos{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px;margin:15px 0}
+.prazo{background:#fff;border:1.5px solid var(--linha);border-left-width:4px;border-radius:11px;padding:14px 16px}
+.prazo .h{font-size:1.5rem;font-weight:800;letter-spacing:-.5px}
+.prazo .l{font-size:12.5px;font-weight:700;margin-top:1px}
+.prazo .d{font-size:11.5px;color:var(--txt3);margin-top:5px;line-height:1.4}
+.p24{border-left-color:var(--vermelho)} .p24 .h,.p24 .l{color:var(--vermelho)}
+.p48{border-left-color:#ea580c} .p48 .h,.p48 .l{color:#ea580c}
+.p72{border-left-color:var(--ambar)} .p72 .h,.p72 .l{color:var(--ambar)}
+.p96{border-left-color:var(--verde)} .p96 .h,.p96 .l{color:var(--verde)}
+
+/* papéis */
+.papeis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:15px 0}
+.papel{background:#fff;border:1px solid var(--linha);border-radius:13px;padding:17px 18px}
+.papel .t{font-size:1rem;font-weight:700;display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.papel ul{list-style:none;font-size:.87rem;color:var(--txt2)}
+.papel li{padding:4px 0 4px 17px;position:relative}
+.papel li::before{content:'';position:absolute;left:0;top:12px;width:5px;height:5px;border-radius:50%;background:var(--azul)}
+.papel li.nao::before{background:var(--vermelho)}
+.pap-ic{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center}
+
+/* fluxo */
+.fluxo{display:flex;flex-direction:column;gap:0;margin:18px 0}
+.etapa{display:flex;gap:15px;position:relative;padding-bottom:22px}
+.etapa:last-child{padding-bottom:0}
+.etapa::before{content:'';position:absolute;left:15px;top:34px;bottom:0;width:2px;background:var(--linha)}
+.etapa:last-child::before{display:none}
+.etapa-n{width:32px;height:32px;border-radius:50%;background:#fff;border:2px solid var(--azul);
+  color:var(--azul);font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;z-index:1}
+.etapa-c{flex:1;padding-top:3px}
+.etapa-t{font-weight:700;color:var(--txt);margin-bottom:3px}
+.etapa-d{font-size:.9rem;color:var(--txt2);line-height:1.5}
+.quem{display:inline-block;font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:20px;
+  background:var(--azul-claro);color:var(--azul);margin-left:7px;vertical-align:1px}
+.quem.colab{background:var(--verde-bg);color:var(--verde)}
+.quem.coord{background:var(--roxo-bg);color:var(--roxo)}
+
+/* perguntas */
+.faq{background:#fff;border:1px solid var(--linha);border-radius:12px;margin-bottom:9px;overflow:hidden}
+.faq summary{padding:15px 18px;font-weight:700;cursor:pointer;font-size:.95rem;
+  display:flex;justify-content:space-between;align-items:center;gap:12px;list-style:none}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:'+';font-size:19px;color:var(--txt3);font-weight:400;flex-shrink:0}
+.faq[open] summary::after{content:'–'}
+.faq summary:hover{background:#f8fafc}
+.faq-c{padding:0 18px 17px;font-size:.92rem;color:var(--txt2);line-height:1.6}
+.faq-c p:last-child{margin-bottom:0}
+
+footer{background:var(--navy);color:#7d93ad;padding:30px 24px;text-align:center;font-size:12.5px}
+footer strong{color:#fff;display:block;font-size:14px;margin-bottom:5px}
+
+.btn-print{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;
+  border:1.5px solid var(--linha);background:#fff;color:var(--txt2);font-size:13px;font-weight:600;
+  cursor:pointer;font-family:inherit;margin-top:18px}
+.btn-print:hover{border-color:var(--azul);color:var(--azul)}
+
+@media print{
+  .indice,.btn-print{display:none}
+  body{background:#fff}
+  section{break-inside:avoid;margin-bottom:28px}
+  .capa{padding:30px 20px}
+  .faq{break-inside:avoid}
+  .faq-c{display:block!important}
+  details{open:true}
+}
+@media(max-width:600px){
+  main{padding:26px 16px 50px}
+  .indice-in{padding:0 16px}
+  .capa{padding:38px 18px 34px}
+}
+</style>
+</head>
+<body>
+
+<div class="capa"><div class="capa-in">
+  <div class="marca">
+    <div class="logo"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div>
+    <div><div class="eyebrow">LACTALIS BRASIL · LOGÍSTICA</div></div>
+  </div>
+  <h1>Guia do Usuário</h1>
+  <p>Como usar o Voz da Operação — registrar pontos de atenção, responder a pesquisa, votar e acompanhar indicadores.</p>
+  <div class="meta">Versão 1.0 · CDs Carambeí, Curitiba e Londrina</div>
+</div></div>
+
+<nav class="indice"><div class="indice-in">
+  <a href="#oque">O que é</a>
+  <a href="#colaborador">Para o colaborador</a>
+  <a href="#prazos">Prazos</a>
+  <a href="#coordenador">Para o coordenador</a>
+  <a href="#gestor">Painéis</a>
+  <a href="#admin">Administração</a>
+  <a href="#duvidas">Dúvidas</a>
+</div></nav>
+
+<main>
+
+<!-- ══════════ 1 ══════════ -->
+<section id="oque">
+  <h2><span class="n">1</span> O que é o Voz da Operação</h2>
+  <p class="sub">Um canal direto entre quem está na operação e quem pode resolver.</p>
+
+  <p>O sistema reúne <strong>três canais</strong> em um só lugar, acessível pelo celular através de QR Codes espalhados pelo CD. Não precisa instalar nada nem criar senha.</p>
+
+  <div class="card">
+    <h4><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Ponto de Atenção</h4>
+    <p style="margin:0">Algo que precisa ser resolvido no dia a dia: equipamento com defeito, área suja, falta de material, risco de acidente. Cada registro tem <strong>prazo definido</strong> e um coordenador responsável.</p>
+  </div>
+
+  <div class="card">
+    <h4><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Pesquisa de Clima</h4>
+    <p style="margin:0">A cada trimestre, uma avaliação sobre segurança, estrutura, liderança, remuneração e escala. <strong>As respostas são anônimas.</strong></p>
+  </div>
+
+  <div class="card">
+    <h4><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><path d="M5 7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v12H5V7Z"/><path d="M22 19H2"/></svg> Eleição de Porta-Vozes</h4>
+    <p style="margin:0">Cada turno escolhe quem vai representá-lo junto à gestão. <strong>O voto é secreto.</strong></p>
+  </div>
+
+  <div class="aviso ok">
+    <svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    <div><strong>Sobre privacidade.</strong> Na pesquisa, o sistema guarda que você participou — para a gestão cobrar quem faltou — mas as respostas ficam em outro lugar, sem nenhuma ligação com seu nome. Na eleição é igual: aparece quem votou, nunca em quem.</div>
+  </div>
+</section>
+
+<!-- ══════════ 2 ══════════ -->
+<section id="colaborador">
+  <h2><span class="n">2</span> Para o colaborador</h2>
+  <p class="sub">Leva menos de dois minutos. Só precisa da sua matrícula.</p>
+
+  <h3>Registrar um ponto de atenção</h3>
+  <ol class="passos">
+    <li><b>Aponte a câmera</b> do celular para o QR Code no mural ou na doca. O site abre sozinho, já no seu CD.</li>
+    <li><b>Toque em "Registrar ponto".</b></li>
+    <li><b>Digite sua matrícula.</b> O sistema mostra seu nome para você conferir.</li>
+    <li><b>Escolha o tema.</b> Cada tema já vem com o prazo e o coordenador definidos — você não escolhe urgência.</li>
+    <li><b>Descreva o que houve.</b> Assunto curto e uma explicação. Informe o local, se ajudar a encontrar.</li>
+    <li><b>Confira e envie.</b> O prazo começa a contar na hora, e o coordenador recebe um e-mail.</li>
+  </ol>
+
+  <div class="aviso info">
+    <svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    <div><strong>Escreva o que daria para alguém resolver sem te procurar.</strong> "Empilhadeira N04 com banco solto, saiu um parafuso" resolve mais rápido que "empilhadeira com problema".</div>
+  </div>
+
+  <h3>Responder a pesquisa</h3>
+  <ol class="passos">
+    <li><b>Toque em "Pesquisa"</b> na tela inicial. Se estiver esmaecido, não há rodada aberta.</li>
+    <li><b>Informe a matrícula.</b> Serve só para registrar que você participou.</li>
+    <li><b>Escolha os temas</b> que quer avaliar. Nenhum é obrigatório.</li>
+    <li><b>Responda as perguntas</b> na escala de Excelente a Péssimo.</li>
+    <li><b>Deixe uma sugestão</b> — mínimo de 20 caracteres. É a parte que mais gera mudança.</li>
+  </ol>
+
+  <h3>Votar no porta-voz</h3>
+  <ol class="passos">
+    <li><b>Toque em "Votação"</b> na tela inicial.</li>
+    <li><b>Informe a matrícula.</b> Cada pessoa vota uma vez.</li>
+    <li><b>Escolha o candidato</b> e confirme.</li>
+  </ol>
+
+  <div class="aviso alerta">
+    <svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <div><strong>Votou errado?</strong> Procure o administrador. O voto pode ser liberado <strong>uma única vez</strong> por pessoa, mediante justificativa registrada.</div>
+  </div>
+</section>
+
+<!-- ══════════ 3 ══════════ -->
+<section id="prazos">
+  <h2><span class="n">3</span> Como funcionam os prazos</h2>
+  <p class="sub">O prazo é do tema, não de quem registra.</p>
+
+  <p>Cada tema tem um prazo fixo, definido pelo administrador. Isso evita que a urgência dependa de quem está preenchendo o formulário.</p>
+
+  <div class="prazos">
+    <div class="prazo p24"><div class="h">24h</div><div class="l">Urgente</div>
+      <div class="d">Risco imediato à segurança ou parada de operação</div></div>
+    <div class="prazo p48"><div class="h">48h</div><div class="l">Alta</div>
+      <div class="d">Afeta diretamente a produtividade</div></div>
+    <div class="prazo p72"><div class="h">72h</div><div class="l">Média</div>
+      <div class="d">Precisa ser resolvido, sem urgência</div></div>
+    <div class="prazo p96"><div class="h">96h</div><div class="l">Baixa</div>
+      <div class="d">Melhoria ou organização</div></div>
+  </div>
+
+  <h3>Quando o prazo não cabe</h3>
+  <p>Alguns pontos dependem de orçamento, compra de peça ou aprovação de diretoria. Para esses, o coordenador pode <strong>prorrogar o prazo</strong>, informando quantos dias precisa e o motivo.</p>
+
+  <div class="aviso roxo">
+    <svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <div>Ao prorrogar, <strong>o contador recomeça</strong> a partir daquele momento. O ponto passa a exibir uma etiqueta "Prorrogado", e tanto o motivo quanto a data da primeira resposta ficam registrados — ninguém perde o histórico.</div>
+  </div>
+
+  <h3>As cores do contador</h3>
+  <div class="tab-wrap"><table>
+    <thead><tr><th>Cor</th><th>Significa</th></tr></thead>
+    <tbody>
+      <tr><td><strong style="color:#16a34a">Verde</strong></td><td>Dentro do prazo, com folga</td></tr>
+      <tr><td><strong style="color:#d97706">Laranja piscando</strong></td><td>Faltam menos de 12 horas</td></tr>
+      <tr><td><strong style="color:#dc2626">Vermelho piscando</strong></td><td>Prazo vencido</td></tr>
+      <tr><td><strong style="color:#16a34a">Verde fixo</strong></td><td>Concluído</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ══════════ 4 ══════════ -->
+<section id="coordenador">
+  <h2><span class="n">4</span> Para o coordenador</h2>
+  <p class="sub">Todo ponto cai no coordenador do tema. A partir daí, ele conduz.</p>
+
+  <div class="fluxo">
+    <div class="etapa"><div class="etapa-n">1</div><div class="etapa-c">
+      <div class="etapa-t">Ponto registrado <span class="quem colab">colaborador</span></div>
+      <div class="etapa-d">O coordenador do tema recebe um e-mail com a descrição e o prazo limite.</div>
+    </div></div>
+    <div class="etapa"><div class="etapa-n">2</div><div class="etapa-c">
+      <div class="etapa-t">Designar quem executa <span class="quem coord">coordenador</span></div>
+      <div class="etapa-d">No botão <b>Designar</b>, busque pelo nome ou matrícula. A lista traz colaboradores e gestores — quem for de fato tocar a ação.</div>
+    </div></div>
+    <div class="etapa"><div class="etapa-n">3</div><div class="etapa-c">
+      <div class="etapa-t">Registrar devolutiva <span class="quem coord">coordenador</span></div>
+      <div class="etapa-d">No botão <b>Responder</b>, informe o andamento. O ponto <b>continua aberto</b> e o prazo segue correndo, mas fica registrada a data da primeira resposta.</div>
+    </div></div>
+    <div class="etapa"><div class="etapa-n">4</div><div class="etapa-c">
+      <div class="etapa-t">Prorrogar, se precisar <span class="quem coord">coordenador</span></div>
+      <div class="etapa-d">No botão <b>Prazo</b>, informe os dias e o motivo. Use quando a solução depender de terceiros, orçamento ou compra.</div>
+    </div></div>
+    <div class="etapa"><div class="etapa-n">5</div><div class="etapa-c">
+      <div class="etapa-t">Concluir <span class="quem coord">coordenador</span></div>
+      <div class="etapa-d">No botão <b>Concluir</b>, escreva o que foi feito. Um e-mail de devolutiva é enviado automaticamente para repasse à gerência e à equipe.</div>
+    </div></div>
+  </div>
+
+  <div class="aviso info">
+    <svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    <div><strong>A devolutiva é o que fecha o ciclo.</strong> Quem registrou vê o texto no cartão do ponto. Sem isso, a pessoa não sabe que foi atendida — e deixa de registrar na próxima vez.</div>
+  </div>
+
+  <h3>Quem pode fazer o quê</h3>
+  <div class="papeis">
+    <div class="papel">
+      <div class="t"><span class="pap-ic" style="background:#f0fdf4"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span> Supervisor</div>
+      <ul><li>Trata os pontos atribuídos a ele</li><li>Designa, responde e prorroga</li><li class="nao">Não vê pontos de outros</li></ul>
+    </div>
+    <div class="papel">
+      <div class="t"><span class="pap-ic" style="background:#eff6ff"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg></span> Coordenador</div>
+      <ul><li>Trata todos os pontos do seu CD</li><li>Designa, responde e prorroga</li><li>Abre eleições e rodadas</li><li>Gera QR Codes</li></ul>
+    </div>
+    <div class="papel">
+      <div class="t"><span class="pap-ic" style="background:#f5f3ff"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> Gerente</div>
+      <ul><li>Acompanha todos os CDs</li><li>Gera indicadores</li><li class="nao">Não conclui tratativas</li></ul>
+    </div>
+    <div class="papel">
+      <div class="t"><span class="pap-ic" style="background:#f1f5f9"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Administrador</div>
+      <ul><li>Configura o sistema</li><li>Transfere e exclui pontos</li><li>Vê as respostas da pesquisa</li><li class="nao">Não conclui tratativas</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 5 ══════════ -->
+<section id="gestor">
+  <h2><span class="n">5</span> Painéis e indicadores</h2>
+  <p class="sub">Entre com seu e-mail corporativo e a senha.</p>
+
+  <p>O login é o <strong>e-mail @br.lactalis.com</strong>. Na tela de entrada você pode digitar só a parte antes do arroba.</p>
+
+  <div class="tab-wrap"><table>
+    <thead><tr><th>Aba</th><th>O que mostra</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Logística</strong></td><td>Pontos vencidos em destaque, taxa de resolução, tempo médio e desempenho por tema e por responsável</td></tr>
+      <tr><td><strong>Participação</strong></td><td>Quem respondeu a pesquisa e quem faltou, com histórico por pessoa</td></tr>
+      <tr><td><strong>Resultados</strong></td><td>Médias, satisfação e sugestões — <em>somente administrador</em></td></tr>
+      <tr><td><strong>Votação</strong></td><td>Apuração por candidato e lista de quem já votou</td></tr>
+      <tr><td><strong>Eleições</strong></td><td>Abertura, candidatos e histórico de eleitos</td></tr>
+      <tr><td><strong>Rodadas</strong></td><td>Abertura e histórico das pesquisas trimestrais</td></tr>
+      <tr><td><strong>QR Codes</strong></td><td>Geração dos cartazes para impressão</td></tr>
+      <tr><td><strong>Configurações</strong></td><td>Gestores, colaboradores, temas e notificações</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Filtro por CD</h3>
+  <p>O seletor no topo vale para <strong>o sistema inteiro</strong>: gráficos, listas e cadastros. Escolha <strong>Regional</strong> para ver os três CDs juntos.</p>
+
+  <h3>Gerar indicadores</h3>
+  <p>O botão <strong>Gerar indicadores</strong> monta um consolidado dos três canais para anexar em e-mail ou apresentar em reunião:</p>
+  <div class="tab-wrap"><table>
+    <thead><tr><th>Formato</th><th>Quando usar</th></tr></thead>
+    <tbody>
+      <tr><td><strong>PDF</strong></td><td>Anexar em e-mail, imprimir, arquivar</td></tr>
+      <tr><td><strong>PowerPoint</strong></td><td>Apresentar em reunião — slides editáveis com gráficos</td></tr>
+    </tbody>
+  </table></div>
+  <p>Você escolhe o período: 30 dias, 90 dias, 6 meses ou todo o histórico.</p>
+
+  <h3>Exportações da aba atual</h3>
+  <p>Os botões <strong>CSV</strong> e <strong>PDF</strong> exportam a aba em que você estiver — se estiver em Participação, sai a lista de participação; em Votação, sai a apuração.</p>
+</section>
+
+<!-- ══════════ 6 ══════════ -->
+<section id="admin">
+  <h2><span class="n">6</span> Administração</h2>
+  <p class="sub">Tarefas do administrador do sistema.</p>
+
+  <h3>Cadastrar colaboradores</h3>
+  <p><strong>Somente quem está cadastrado consegue registrar ponto, votar ou responder a pesquisa.</strong> Em Configurações → Colaboradores → Importar, selecione as colunas no Excel e cole:</p>
+  <div class="tab-wrap"><table>
+    <thead><tr><th>Coluna</th><th>Exemplo</th><th>Obrigatório</th></tr></thead>
+    <tbody>
+      <tr><td>Matrícula</td><td>20001</td><td><strong>Sim</strong></td></tr>
+      <tr><td>Nome</td><td>Ana Souza</td><td><strong>Sim</strong></td></tr>
+      <tr><td>Turno</td><td>1º Turno, Intermediário, Adm</td><td>Não</td></tr>
+      <tr><td>Setor</td><td>Expedição</td><td>Não</td></tr>
+      <tr><td>Função</td><td>Conferente</td><td>Não</td></tr>
+      <tr><td>Admissão</td><td>11/03/2019</td><td>Não</td></tr>
+    </tbody>
+  </table></div>
+  <p>O sistema mostra uma prévia antes de importar, marcando em laranja quem já existe e em vermelho as linhas com erro. Importe <strong>um CD por vez</strong>.</p>
+
+  <div class="aviso info">
+    <svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    <div>Pessoal administrativo que atende os três CDs pode ser cadastrado como <strong>Regional</strong> — aparece em qualquer filtro e registra ponto em qualquer CD.</div>
+  </div>
+
+  <h3>Configurar os temas</h3>
+  <p>Em Configurações → Temas, cada linha define: ícone, nome, CD, <strong>prazo em horas</strong> e <strong>coordenador responsável</strong>. É o coordenador que recebe o ponto e conduz a tratativa.</p>
+
+  <div class="aviso alerta">
+    <svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <div>Tema sem coordenador gera ponto sem dono e <strong>sem e-mail de aviso</strong>. Confira essa coluna sempre que criar um tema.</div>
+  </div>
+
+  <h3>Notificações por e-mail</h3>
+  <p>O coordenador do tema sempre recebe. A lista em Configurações → Notificações serve para incluir gerência ou outras áreas, com três chaves independentes: novo ponto, devolutiva e conclusão.</p>
+
+  <h3>QR Codes</h3>
+  <ol class="passos">
+    <li><b>Informe o endereço do sistema</b> uma vez, no campo do topo da aba.</li>
+    <li><b>Crie um código</b> por CD, finalidade e setor.</li>
+    <li><b>Imprima o cartaz</b> ou baixe o PNG. Dá para usar a arte oficial da campanha enviando o arquivo e posicionando o QR sobre ela.</li>
+  </ol>
+  <p>Sugestão: ponto de atenção nas docas e corredores; menu completo no refeitório e vestiário; votação nos murais durante o período eleitoral.</p>
+
+  <h3>Férias e afastamentos</h3>
+  <p>O administrador pode transferir pontos abertos de um responsável para outro pelo ícone de troca no cartão, sempre com justificativa registrada.</p>
+</section>
+
+<!-- ══════════ 7 ══════════ -->
+<section id="duvidas">
+  <h2><span class="n">7</span> Dúvidas frequentes</h2>
+  <p class="sub">As perguntas que mais aparecem.</p>
+
+  <details class="faq"><summary>Minha matrícula não é reconhecida</summary>
+    <div class="faq-c"><p>Três causas possíveis: você ainda não foi cadastrado, está com o CD errado selecionado na tela inicial, ou esqueceu um zero à esquerda. Confira o CD no topo e procure a supervisão se persistir.</p></div></details>
+
+  <details class="faq"><summary>Posso registrar um ponto de outro CD?</summary>
+    <div class="faq-c"><p>Não. Cada colaborador registra apenas no seu CD. A exceção é quem está cadastrado como Regional — administrativo e apoio, que atuam nos três.</p></div></details>
+
+  <details class="faq"><summary>Quem vai saber o que eu respondi na pesquisa?</summary>
+    <div class="faq-c"><p>Ninguém. Participação e respostas ficam em tabelas separadas, sem nenhuma ligação entre si. Seu coordenador vê que você participou; o conteúdo só é acessível de forma agregada, e apenas pelo administrador.</p></div></details>
+
+  <details class="faq"><summary>Dá para descobrir em quem votei?</summary>
+    <div class="faq-c"><p>Não pelo sistema. A tela de apuração mostra apenas o total por candidato, e a lista de participação não traz o voto. A restrição está no banco de dados, não só na tela.</p></div></details>
+
+  <details class="faq"><summary>O prazo venceu e nada foi feito</summary>
+    <div class="faq-c"><p>O ponto fica em vermelho piscando e aparece em destaque no painel do coordenador e da gerência. Nada é apagado — o registro permanece até ser concluído.</p></div></details>
+
+  <details class="faq"><summary>Prorroguei o prazo. O ponto some do vencido?</summary>
+    <div class="faq-c"><p>Sim, o contador recomeça e o ponto volta a ficar verde. Mas a etiqueta "Prorrogado", o motivo e a data da primeira resposta ficam visíveis no cartão e nos relatórios.</p></div></details>
+
+  <details class="faq"><summary>Esqueci minha senha de gestor</summary>
+    <div class="faq-c"><p>Procure o administrador. Ele redefine em Configurações → Gestores, no ícone de edição.</p></div></details>
+
+  <details class="faq"><summary>O e-mail não chegou</summary>
+    <div class="faq-c"><p>Confira a caixa de spam. Se não estiver lá, verifique com o administrador se o tema tem coordenador e se o coordenador tem e-mail cadastrado.</p></div></details>
+
+  <details class="faq"><summary>Preciso instalar algum aplicativo?</summary>
+    <div class="faq-c"><p>Não. Funciona pelo navegador do celular. Se quiser acesso rápido, use "Adicionar à tela de início" no menu do navegador.</p></div></details>
+
+  <details class="faq"><summary>Gasta a internet do meu celular?</summary>
+    <div class="faq-c"><p>Praticamente nada — o sistema é bem leve, equivalente a abrir uma página de notícias.</p></div></details>
+
+  <button class="btn-print" onclick="window.print()">
+    <svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    Imprimir este guia
+  </button>
+</section>
+
+</main>
+
+<footer>
+  <strong>Voz da Operação</strong>
+  Lactalis Brasil — Logística PR · Uso interno<br>
+  Dúvidas ou sugestões sobre o sistema: procure a coordenação do seu CD
+</footer>
+
+<script>
+// destaca o item do índice conforme a leitura avança
+const secoes = [...document.querySelectorAll('section')];
+const links  = [...document.querySelectorAll('.indice a')];
+const marcar = () => {
+  const y = window.scrollY + 120;
+  let atual = secoes[0];
+  secoes.forEach(s => { if (s.offsetTop <= y) atual = s; });
+  links.forEach(a => {
+    const on = a.getAttribute('href') === '#' + atual.id;
+    a.style.color = on ? '#2563eb' : '';
+    a.style.borderBottomColor = on ? '#2563eb' : 'transparent';
+  });
+};
+window.addEventListener('scroll', marcar, { passive: true });
+marcar();
+</script>
+</body>
+</html>

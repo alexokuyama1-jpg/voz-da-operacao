@@ -9,11 +9,27 @@ const H = 3600000, DAY = 86400000;
 const CDS = ['CD Carambeí', 'CD Curitiba', 'CD Londrina'];
 const REGIONAL = 'Regional';               // abrange todos os CDs
 const CD_OPTIONS = [REGIONAL, ...CDS];     // usado nos cadastros
-const CRIT = {
-  baixa: { label: 'Baixa', hours: 48, tone: 'green',  badge: 'badge-green',  color: '#16a34a' },
-  media: { label: 'Média', hours: 72, tone: 'amber',  badge: 'badge-orange', color: '#d97706' },
-  alta:  { label: 'Alta',  hours: 96, tone: 'red',    badge: 'badge-red',    color: '#dc2626' },
+/* O prazo agora é escolhido em horas no cadastro do tema.
+   A etiqueta de urgência deriva do prazo: quanto menor, mais urgente. */
+const SLA_OPCOES = [24, 48, 72, 96];
+const SLA = {
+  24: { label: 'Urgente', tone: 'red',    badge: 'badge-red',    color: '#dc2626' },
+  48: { label: 'Alta',    tone: 'orange', badge: 'badge-orange', color: '#ea580c' },
+  72: { label: 'Média',   tone: 'amber',  badge: 'badge-amber',  color: '#d97706' },
+  96: { label: 'Baixa',   tone: 'green',  badge: 'badge-green',  color: '#16a34a' },
 };
+const slaInfo = h => SLA[h] || SLA[72];
+
+/* Compatibilidade com registros antigos, que guardavam só a criticidade. */
+/* Mapa legado: temas antigos guardavam só a criticidade.
+   Quanto maior a criticidade, MENOR o prazo. */
+const CRIT = {
+  baixa: { label: 'Baixa', hours: 96, tone: 'green',  badge: 'badge-green',  color: '#16a34a' },
+  media: { label: 'Média', hours: 72, tone: 'amber',  badge: 'badge-amber',  color: '#d97706' },
+  alta:  { label: 'Alta',  hours: 48, tone: 'red',    badge: 'badge-red',    color: '#dc2626' },
+};
+/* Prazo efetivo de um tema. */
+const temaSla = t => (t && t.sla_hours) || (t && CRIT[t.criticality] ? CRIT[t.criticality].hours : 72);
 /* bolinha colorida no lugar do emoji de semáforo */
 const dot = tone => `<span class="dot dot-${tone}"></span>`;
 const SCALE = ['Excelente', 'Bom', 'Regular', 'Ruim', 'Péssimo'];
@@ -70,6 +86,7 @@ const ICONS = {
   ferramenta: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
   escudo:     '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
   caixa:      '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+  lampada:    '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.1 14a5 5 0 1 0-6.2 0c.6.5 1.1 1.2 1.1 2h4c0-.8.5-1.5 1.1-2Z"/>',
   vassoura:   '<path d="M19 8l-7 7"/><path d="m14 3 7 7"/><path d="M5 21c0-3 2-5 4-6l6-6 3 3-6 6c-1 2-3 4-6 4H5z"/>',
   caminhao:   '<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
   martelo:    '<path d="m15 12-8.5 8.5a2.12 2.12 0 1 1-3-3L12 9"/><path d="M17.64 15 22 10.64"/><path d="m20.91 11.7-1.25-1.25c-.6-.6-.93-1.4-.93-2.25v-.86L16.01 4.6a5.56 5.56 0 0 0-3.94-1.64H9l.92.82A6.18 6.18 0 0 1 12 8.4v1.56l2 2h2.47l2.26 1.91"/>',
@@ -125,6 +142,7 @@ const ICO_TEMA = [
   ['usuarios','Pessoas'], ['moeda','Custos'], ['calendario','Escala'],
   ['relogio','Prazos'], ['doc','Documentos'], ['qr','Tecnologia'],
   ['local','Local'], ['lista','Geral'], ['alerta','Riscos'],
+  ['lampada','Ideias'],
 ];
 
 /* ══════════ CACHE EM MEMÓRIA ══════════ */
@@ -176,10 +194,22 @@ function toMs(v) {
   return isNaN(n) ? 0 : n;
 }
 const elapsed = o => Date.now() - toMs(o.created_at);
-const remaining = o => (o.sla_hours * H) - elapsed(o);
+
+/* Prazo vigente: o original, ou o novo prazo se houve prorrogação. */
+function prazoDe(o) {
+  if (o.deadline_at) return toMs(o.deadline_at);
+  return toMs(o.created_at) + (o.sla_hours || 72) * H;
+}
+const prorrogado = o => (o.extension_count || 0) > 0;
+const remaining = o => prazoDe(o) - Date.now();
 
 function fmtTimer(ms) {
-  if (ms <= 0) return '00:00:00';
+  if (!(ms > 0)) return '00:00:00';
+  // prazos prorrogados chegam a semanas: 287:59:59 não se lê
+  if (ms >= 48 * H) {
+    const d = Math.floor(ms / DAY);
+    return d + 'd ' + pad(Math.floor((ms % DAY) / H)) + 'h';
+  }
   return pad(Math.floor(ms / H)) + ':' + pad(Math.floor((ms % H) / 60000)) + ':' + pad(Math.floor((ms % 60000) / 1000));
 }
 function fmtDate(ts) {
@@ -602,13 +632,13 @@ function renderPontoThemes() {
     return;
   }
   g.innerHTML = themes.map(t => {
-    const c = CRIT[t.criticality] || CRIT.media;
+    const h = temaSla(t), c = slaInfo(h);
     const sel = S.pTheme === t.id;
     return `<button class="theme-tile ${sel ? 'sel' : ''}" onclick="selLogTheme('${t.id}')">
       ${sel ? `<span class="tt-chk">${ico('check', 11, '#fff')}</span>` : ''}
       <span class="tt-icon">${temaIco(t.icon, 20)}</span>
       <span class="tt-name">${esc(t.label)}</span>
-      <span class="tt-crit ${t.criticality || 'media'}">${dot(c.tone)} Prazo ${c.hours}h</span>
+      <span class="tt-crit t-${c.tone}">${dot(c.tone)} Prazo ${h}h</span>
     </button>`;
   }).join('');
 }
@@ -619,7 +649,7 @@ function selLogTheme(id) {
   renderPontoThemes();
   $('pp2-next').disabled = false;
   const t = byId(M.log_themes, id);
-  const c = CRIT[t.criticality] || CRIT.media;
+  const h = temaSla(t), c = slaInfo(h);
   const sup = byId(M.profiles, t.supervisor_id);
   const nomeSup = sup ? sup.name : (t.supervisor_name || '');
   const box = $('pp2-selected');
@@ -635,7 +665,7 @@ function pontoStep(n) {
   ['pp-1', 'pp-2', 'pp-3', 'pp-4', 'pp-ok'].forEach(i => $(i).classList.add('hidden'));
   setPontoProgress(n);
   const t = byId(M.log_themes, S.pTheme);
-  const c = t ? (CRIT[t.criticality] || CRIT.media) : CRIT.media;
+  const hh = temaSla(t), c = slaInfo(hh);
 
   if (n === 2) renderPontoThemes();
   if (n === 3) {
@@ -643,14 +673,14 @@ function pontoStep(n) {
     const nomeSup3 = sup ? sup.name : (t && t.supervisor_name) || '';
     $('pp3-badges').innerHTML =
       `<span class="badge badge-blue">${t ? temaIco(t.icon, 14) : ''} ${esc(t ? t.label : '')}</span>` +
-      `<span class="badge ${c.badge}">${dot(c.tone)} ${c.label} · ${c.hours}h</span>` +
+      `<span class="badge ${c.badge}">${dot(c.tone)} ${c.label} · ${hh}h</span>` +
       (nomeSup3 ? `<span class="badge badge-gray">${ico('usuario',12)} ${esc(nomeSup3)}</span>` : '');
   }
   if (n === 4) {
     const sup = t ? byId(M.profiles, t.supervisor_id) : null;
     $('pp4-author').textContent = `${S.pEmp.name} (${S.pEmp.matricula})`;
     $('pp4-tema').innerHTML     = `${temaIco(t.icon, 15)} ${esc(t.label)}`;
-    $('pp4-crit').innerHTML     = `${dot(c.tone)} ${c.label} — prazo de ${c.hours} horas <span class="text-muted">(definido pelo tema)</span>`;
+    $('pp4-crit').innerHTML     = `${dot(c.tone)} ${c.label} — prazo de ${hh} horas <span class="text-muted">(definido pelo tema)</span>`;
     // o nome do responsável só aparece se o servidor tiver informado
     const nomeSup = sup ? `${sup.name} (${ROLE_LABEL[sup.role]})` : (t.supervisor_name || '');
     $('pp4-sup-box').classList.toggle('hidden', !nomeSup);
@@ -667,13 +697,12 @@ async function submitPonto() {
   if (subj.length < 5) { toast('Descreva o assunto (mín. 5 caracteres).', 'orange'); pontoStep(3); return; }
   if (desc.length < 10) { toast('Detalhe o ponto (mín. 10 caracteres).', 'orange'); pontoStep(3); return; }
   const t = byId(M.log_themes, S.pTheme);
-  const crit = t.criticality || 'media';
-  const c = CRIT[crit];
-  let rec;
+  const horas = temaSla(t);
+  let rec, novoId = null;
   try {
     if (DB.online) {
-      // Criticidade, prazo e supervisor vêm do tema, definidos no servidor.
-      await DB.rpc('register_occurrence', {
+      // Prazo, prioridade e coordenador vêm do tema, definidos no servidor.
+      novoId = await DB.rpc('register_occurrence', {
         p_matricula: S.pEmp.matricula, p_theme: S.pTheme,
         p_title: subj, p_description: desc, p_location: local,
       });
@@ -683,16 +712,19 @@ async function submitPonto() {
         cd: empCd(S.pEmp), theme_id: S.pTheme, title: subj, description: desc, location: local,
         author_matricula: S.pEmp.matricula, author_name: S.pEmp.name,
         author_shift: S.pEmp.shift, author_sector: S.pEmp.sector,
-        criticality: crit, sla_hours: c.hours, supervisor_id: t.supervisor_id,
-        status: 'open', resolved_at: null, resolved_by: null, resolution_note: null,
+        criticality: t.criticality || 'media', sla_hours: horas, supervisor_id: t.supervisor_id,
+        status: 'open', deadline_at: Date.now() + horas * H,
+        resolved_at: null, resolved_by: null, resolution_note: null,
       });
       M.occurrences.push(rec);
+      novoId = rec.id;
     }
   } catch (e) { toast(e.message, 'red'); return; }
-  notifyStub('on_new', rec);
-  const sup = byId(M.profiles, t.supervisor_id);
-  $('pp-ok-msg').innerHTML = `Prazo de <strong>${c.hours} horas</strong> iniciado.` +
-    (sup ? ` Encaminhado para <strong>${esc(sup.name)}</strong>.` : '');
+  if (novoId) DB.notificar('novo', novoId);   // não bloqueia a tela
+  const supC = byId(M.profiles, t.supervisor_id);
+  const nomeC = supC ? supC.name : (t.supervisor_name || '');
+  $('pp-ok-msg').innerHTML = `Prazo de <strong>${horas} horas</strong> iniciado.` +
+    (nomeC ? ` Encaminhado para <strong>${esc(nomeC)}</strong>.` : '');
   ['pp-1', 'pp-2', 'pp-3', 'pp-4'].forEach(i => $(i).classList.add('hidden'));
   $('pp-ok').classList.remove('hidden');
   // o botão de acompanhar só faz sentido para quem trata os pontos
@@ -1002,7 +1034,7 @@ function renderOccList() {
 
   $('occ-list').innerHTML = l.map(o => {
     const t = byId(M.log_themes, o.theme_id) || { icon: '', label: '—' };
-    const c = CRIT[o.criticality] || CRIT.baixa;
+    const c = slaInfo(o.sla_hours || 72);
     const sup = byId(M.profiles, o.supervisor_id);
     const rem = remaining(o);
     let tc, tt;
@@ -1012,14 +1044,17 @@ function renderOccList() {
     else { tc = 't-ok'; tt = fmtTimer(rem); }
     const cc = o.status === 'done' ? 'c-done' : rem <= 0 ? 'c-expired' : rem < 12 * H ? 'c-warn' : 'c-open';
     const note = o.status === 'done' && o.resolution_note;
+    const rodape = note || (o.status === 'open' && (o.first_response_note || prorrogado(o)));
     return `<div class="occ-wrap">
-      <div class="occ-card ${cc} ${note ? 'has-note' : ''}" id="card-${o.id}">
+      <div class="occ-card ${cc} ${rodape ? 'has-note' : ''}" id="card-${o.id}">
         <div class="occ-inner">
           <div class="occ-icon">${temaIco(t.icon, 18)}</div>
           <div class="occ-body">
             <div class="occ-theme-label"><span>${esc(t.label)}</span>
-              <span class="badge ${c.badge}">${dot(c.tone)} ${c.label} · ${c.hours}h</span>
-              ${o.reassigned_at ? `<span class="badge badge-purple" title="${esc(o.reassign_reason || '')}">Transferido</span>` : ''}</div>
+              <span class="badge ${c.badge}">${dot(c.tone)} ${c.label} · ${o.sla_hours || 72}h</span>
+              ${prorrogado(o) ? `<span class="badge badge-purple" title="${esc(o.extension_reason || '')}">Prorrogado ${o.extension_count}×</span>` : ''}
+              ${o.first_response_at && o.status === 'open' ? `<span class="badge badge-blue">Em tratativa</span>` : ''}
+              ${o.reassigned_at ? `<span class="badge badge-gray" title="${esc(o.reassign_reason || '')}">Transferido</span>` : ''}</div>
             <div class="occ-title">${esc(o.title)}</div>
             <div class="occ-desc">${esc(o.description)}</div>
             <div class="occ-meta">
@@ -1027,22 +1062,37 @@ function renderOccList() {
               ${o.location ? `<span class="occ-place">${ico('local',12)} ${esc(o.location)}</span>` : ''}
               ${sup ? `<span class="occ-sup">${ico('usuario',12)} ${esc(sup.name)}</span>` : ''}
               <span class="occ-date">${ico('calendario',12)} ${fmtDate(o.created_at)}</span>
+              ${o.assignee_name ? `<span class="occ-assignee">${ico('check',12)} ${esc(o.assignee_name)}</span>` : ''}
+              ${o.first_response_at ? `<span class="occ-resp" title="Primeira devolutiva">${ico('balao',12)} ${fmtDate(o.first_response_at)}</span>` : ''}
               <span class="occ-timer ${tc}" id="timer-${o.id}">${tt}</span>
             </div>
           </div>
         </div>
         <div class="occ-actions">
-          ${o.status === 'open'? (canTreat(o) ? `<button class="btn-tratar" onclick="openTratar('${o.id}')"> Tratar</button>`
-                           : `<span class="badge badge-gray">Aguardando</span>`)
-            : `<span class="badge badge-green"> Concluído</span>`}
+          ${o.status === 'open'
+            ? (canTreat(o) ? `
+                <button class="btn-tratar" onclick="openTratar('${o.id}')">Concluir</button>
+                <div class="occ-sub-acts">
+                  <button class="btn-ghost sm" title="Designar quem executa" onclick="openAssign('${o.id}')">${ico('usuario', 13)} Designar</button>
+                  <button class="btn-ghost sm" title="Registrar devolutiva" onclick="openResposta('${o.id}')">${ico('balao', 13)} Responder</button>
+                  <button class="btn-ghost sm" title="Prorrogar prazo" onclick="openPrazo('${o.id}')">${ico('relogio', 13)} Prazo</button>
+                </div>`
+              : `<span class="badge badge-gray">Aguardando</span>`)
+            : `<span class="badge badge-green">Concluído</span>`}
           ${isAdmin() ? `<div class="admin-acts">
-            ${o.status === 'open' ? `<button class="btn-icon" title="Trocar responsável" onclick="openReassign('${o.id}')">${ico('troca', 14)}</button>` : ''}
+            ${o.status === 'open' ? `<button class="btn-icon" title="Trocar coordenador" onclick="openReassign('${o.id}')">${ico('troca', 14)}</button>` : ''}
             <button class="btn-icon del" title="Excluir ponto" onclick="openDeleteOcc('${o.id}')">${ico('lixeira', 14)}</button>
           </div>` : ''}
         </div>
       </div>
-      ${note ? `<div class="occ-resolution"><strong>Devolutiva:</strong> ${esc(o.resolution_note)}
+      ${note ? `<div class="occ-resolution"><strong>Devolutiva final:</strong> ${esc(o.resolution_note)}
         <br><em>${esc(o.resolved_by)} · ${fmtDate(o.resolved_at)}</em></div>` : ''}
+      ${o.status === 'open' && o.first_response_note ? `<div class="occ-resolution parcial">
+        <strong>Em tratativa:</strong> ${esc(o.first_response_note)}
+        <br><em>${esc(o.first_response_by || '')} · ${fmtDate(o.first_response_at)}</em></div>` : ''}
+      ${o.status === 'open' && prorrogado(o) ? `<div class="occ-resolution prorrog">
+        <strong>Prazo prorrogado em ${o.extension_days} dia(s):</strong> ${esc(o.extension_reason || '')}
+        <br><em>${esc(o.extended_by || '')} · novo prazo ${fmtDate(prazoDe(o))}</em></div>` : ''}
     </div>`;
   }).join('');
   startTimers();
@@ -1066,7 +1116,7 @@ function openTratar(id) {
   const o = byId(M.occurrences, id); if (!o) return;
   S._tratarId = id;
   const t = byId(M.log_themes, o.theme_id) || { icon: '', label: '—' };
-  const c = CRIT[o.criticality] || CRIT.baixa;
+  const c = slaInfo(o.sla_hours || 72);
   $('tratar-preview').innerHTML = `<div class="cb-label">${esc(t.label)} · ${dot(c.tone)} ${c.label}</div>
     <div style="font-weight:700;color:var(--blue);margin:3px 0">${esc(o.title)}</div>
     <div style="font-size:.85rem;color:var(--text2)">${esc(o.description)}</div>`;
@@ -1077,13 +1127,26 @@ function openTratar(id) {
 async function confirmTratar() {
   const note = $('tratar-note').value.trim();
   if (note.length < 10) return;
-  const agora = DB.online ? new Date().toISOString() : Date.now();
-  const patch = { status: 'done', resolved_at: agora, resolved_by: S.user ? S.user.name : 'Supervisor', resolution_note: note };
-  await DB.update('occurrences', S._tratarId, patch);
-  Object.assign(byId(M.occurrences, S._tratarId), patch);
+  try {
+    if (DB.online) {
+      await DB.rpc('close_occurrence', { p_occurrence: S._tratarId, p_note: note });
+      M.occurrences = await DB.select('occurrences');
+    } else {
+      const o = byId(M.occurrences, S._tratarId);
+      const agora = Date.now();
+      const patch = { status: 'done', resolved_at: agora,
+        resolved_by: S.user ? S.user.name : 'Coordenação', resolution_note: note,
+        first_response_at: o.first_response_at || agora,
+        first_response_note: o.first_response_note || note,
+        first_response_by: o.first_response_by || (S.user ? S.user.name : 'Coordenação') };
+      await DB.update('occurrences', S._tratarId, patch);
+      Object.assign(o, patch);
+    }
+  } catch (e) { toast(e.message, 'red'); return; }
+  DB.notificar('concluido', S._tratarId);   // devolutiva por e-mail
   closeModal('modal-tratar'); renderPontos(); refreshBanner();
   if (S.user) renderDash();
-  toast('Ponto tratado e devolutiva registrada!', 'green');
+  toast('Ponto concluído. Devolutiva enviada à coordenação.', 'green');
 }
 /* ---- Trocar responsável (somente admin) ---- */
 function supervisorOptions(excludeId) {
@@ -1164,6 +1227,201 @@ async function confirmDeleteOcc() {
   M.occurrences = M.occurrences.filter(o => o.id !== S._delOccId);
   closeModal('modal-del-occ'); renderPontos(); renderDash(); refreshBanner();
   toast('Ponto excluído.', 'orange');
+}
+
+/* ══════════ DESIGNAR · RESPONDER · PRORROGAR ══════════ */
+
+/* ---- Designar quem vai executar ---- */
+function openAssign(id) {
+  const o = byId(M.occurrences, id); if (!o) return;
+  S._assignId = id; S._assignPick = null;
+  const t = byId(M.log_themes, o.theme_id) || { label: '—' };
+  $('as-preview').innerHTML = `<div class="cb-label">${esc(t.label)} · ${esc(o.cd)}</div>
+    <div style="font-weight:700;color:var(--blue);margin:3px 0">${esc(o.title)}</div>
+    ${o.assignee_name ? `<div style="font-size:.85rem;color:var(--text2)">Responsável atual: <strong>${esc(o.assignee_name)}</strong></div>` : ''}`;
+  $('as-busca').value = '';
+  $('as-escolhido').classList.add('hidden');
+  $('as-lista').classList.add('hidden');
+  $('as-btn').disabled = true;
+  openModal('modal-assign');
+  setTimeout(() => $('as-busca').focus(), 100);
+}
+
+/* Busca unificada: colaboradores + gestores. */
+function candidatosResponsavel() {
+  const o = byId(M.occurrences, S._assignId);
+  const cd = o ? o.cd : S.dashCd;
+  const emps = M.employees
+    .filter(e => e.active !== false && (e.cd === cd || e.cd === REGIONAL))
+    .map(e => ({ kind: 'employee', id: e.id, nome: e.name,
+                 papel: e.job_title || e.sector || 'Colaborador',
+                 extra: `${e.matricula} · ${e.shift}`, mat: e.matricula }));
+  const gest = M.profiles
+    .filter(u => u.active !== false && (u.cd === cd || u.cd === REGIONAL || u.cd === 'TODOS'))
+    .map(u => ({ kind: 'profile', id: u.id, nome: u.name,
+                 papel: ROLE_LABEL[u.role] || 'Gestor',
+                 extra: `${u.matricula} · ${u.cd}`, mat: u.matricula }));
+  return [...gest, ...emps];
+}
+
+function buscarResponsavel() {
+  const q = $('as-busca').value.trim().toLowerCase();
+  const lista = $('as-lista');
+  let itens = candidatosResponsavel();
+  if (q) {
+    itens = itens.filter(x =>
+      x.nome.toLowerCase().includes(q) ||
+      String(x.mat || '').toLowerCase().includes(q) ||
+      x.papel.toLowerCase().includes(q));
+  }
+  itens = itens.slice(0, 40);
+
+  if (!itens.length) {
+    lista.innerHTML = `<div class="pick-vazio">Ninguém encontrado para "${esc(q)}"</div>`;
+    lista.classList.remove('hidden');
+    return;
+  }
+  lista.innerHTML = itens.map(x => `
+    <button class="pick-item" onclick="escolherResponsavel('${x.kind}','${x.id}')">
+      <span class="pick-av ${x.kind === 'profile' ? 'gest' : ''}">${esc(initials(x.nome))}</span>
+      <span class="pick-tx">
+        <span class="pick-nome">${esc(x.nome)}</span>
+        <span class="pick-meta">${esc(x.papel)} · ${esc(x.extra)}</span>
+      </span>
+      ${x.kind === 'profile' ? '<span class="pick-tag">gestor</span>' : ''}
+    </button>`).join('');
+  lista.classList.remove('hidden');
+}
+
+function escolherResponsavel(kind, id) {
+  const x = candidatosResponsavel().find(c => c.kind === kind && c.id === id);
+  if (!x) return;
+  S._assignPick = x;
+  $('as-busca').value = x.nome;
+  $('as-lista').classList.add('hidden');
+  const box = $('as-escolhido');
+  box.classList.remove('hidden');
+  box.className = 'emp-card';
+  box.innerHTML = `<div class="emp-avatar">${esc(initials(x.nome))}</div><div>
+    <div class="emp-name">${esc(x.nome)}</div>
+    <div class="emp-meta">${esc(x.papel)} · ${esc(x.extra)}</div></div>`;
+  $('as-btn').disabled = false;
+}
+
+async function confirmAssign() {
+  const x = S._assignPick; if (!x) return;
+  try {
+    if (DB.online) {
+      await DB.rpc('assign_occurrence', { p_occurrence: S._assignId, p_kind: x.kind, p_person: x.id });
+      M.occurrences = await DB.select('occurrences');
+    } else {
+      const patch = { assignee_kind: x.kind, assignee_id: x.id, assignee_name: x.nome,
+                      assignee_role: x.papel, assigned_at: Date.now(),
+                      assigned_by: S.user ? S.user.name : 'Coordenação' };
+      await DB.update('occurrences', S._assignId, patch);
+      Object.assign(byId(M.occurrences, S._assignId), patch);
+    }
+  } catch (e) { toast(e.message, 'red'); return; }
+  closeModal('modal-assign'); renderPontos(); renderDash();
+  toast(x.nome + ' designado(a) como responsável.', 'green');
+}
+
+/* ---- Primeira devolutiva (ponto segue aberto) ---- */
+function openResposta(id) {
+  const o = byId(M.occurrences, id); if (!o) return;
+  S._respId = id;
+  const t = byId(M.log_themes, o.theme_id) || { label: '—' };
+  $('rp-preview').innerHTML = `<div class="cb-label">${esc(t.label)} · prazo até ${fmtDate(prazoDe(o))}</div>
+    <div style="font-weight:700;color:var(--blue);margin:3px 0">${esc(o.title)}</div>
+    ${o.first_response_at ? `<div style="font-size:.82rem;color:var(--text2)">Primeira resposta em ${fmtDate(o.first_response_at)} — esta atualiza o texto.</div>` : ''}`;
+  $('rp-note').value = o.first_response_note || '';
+  countChar('rp-note', 'rp-char', 400, 10, 'rp-btn');
+  openModal('modal-resposta');
+  setTimeout(() => $('rp-note').focus(), 100);
+}
+
+async function confirmResposta() {
+  const nota = $('rp-note').value.trim();
+  if (nota.length < 10) return;
+  try {
+    if (DB.online) {
+      await DB.rpc('first_response', { p_occurrence: S._respId, p_note: nota });
+      M.occurrences = await DB.select('occurrences');
+    } else {
+      const o = byId(M.occurrences, S._respId);
+      const patch = { first_response_at: o.first_response_at || Date.now(),
+                      first_response_note: nota,
+                      first_response_by: S.user ? S.user.name : 'Coordenação' };
+      await DB.update('occurrences', S._respId, patch);
+      Object.assign(o, patch);
+    }
+  } catch (e) { toast(e.message, 'red'); return; }
+  DB.notificar('resposta', S._respId);
+  closeModal('modal-resposta'); renderPontos(); renderDash();
+  toast('Devolutiva registrada. Coordenação notificada por e-mail.', 'green');
+}
+
+/* ---- Prorrogar prazo ---- */
+const PZ_ATALHOS = [3, 7, 15, 30];
+
+function openPrazo(id) {
+  const o = byId(M.occurrences, id); if (!o) return;
+  S._prazoId = id;
+  const t = byId(M.log_themes, o.theme_id) || { label: '—' };
+  const venc = prazoDe(o), atrasado = venc < Date.now();
+  $('pz-preview').innerHTML = `<div class="cb-label">${esc(t.label)} · ${esc(o.cd)}</div>
+    <div style="font-weight:700;color:var(--blue);margin:3px 0">${esc(o.title)}</div>
+    <div style="font-size:.85rem;color:${atrasado ? 'var(--red)' : 'var(--text2)'}">
+      Prazo atual: <strong>${fmtDate(venc)}</strong>${atrasado ? ' — vencido' : ''}</div>
+    ${o.extension_count ? `<div style="font-size:11.5px;color:var(--text3);margin-top:4px">
+      Já prorrogado ${o.extension_count}× — último motivo: ${esc(o.extension_reason || '')}</div>` : ''}`;
+  $('pz-atalhos').innerHTML = PZ_ATALHOS.map(d =>
+    `<button class="dia-chip" onclick="setPrazoDias(${d})">${d} dias</button>`).join('');
+  $('pz-dias').value = 7;
+  $('pz-motivo').value = '';
+  validarPrazo();
+  openModal('modal-prazo');
+  setTimeout(() => $('pz-motivo').focus(), 100);
+}
+
+function setPrazoDias(d) { $('pz-dias').value = d; validarPrazo(); }
+
+function validarPrazo() {
+  const d = parseInt($('pz-dias').value, 10);
+  const m = $('pz-motivo').value;
+  $('pz-char').textContent = m.length + ' / 300';
+  $('pz-char').className = 'char-hint ' + (m.trim().length < 10 ? 'warn' : 'ok');
+  const dOk = d >= 1 && d <= 180;
+  $('pz-ate').textContent = dOk
+    ? 'Novo prazo até ' + fmtDate(Date.now() + d * DAY)
+    : 'Informe de 1 a 180 dias';
+  $('pz-ate').className = 'field-hint ' + (dOk ? 'ok' : 'err');
+  document.querySelectorAll('.dia-chip').forEach(b =>
+    b.classList.toggle('on', parseInt(b.textContent, 10) === d));
+  $('pz-btn').disabled = !dOk || m.trim().length < 10;
+}
+
+async function confirmPrazo() {
+  const d = parseInt($('pz-dias').value, 10);
+  const motivo = $('pz-motivo').value.trim();
+  if (!(d >= 1 && d <= 180) || motivo.length < 10) return;
+  try {
+    if (DB.online) {
+      await DB.rpc('extend_occurrence', { p_occurrence: S._prazoId, p_days: d, p_reason: motivo });
+      M.occurrences = await DB.select('occurrences');
+    } else {
+      const o = byId(M.occurrences, S._prazoId);
+      const patch = { deadline_at: Date.now() + d * DAY, extension_days: d,
+                      extension_reason: motivo, extended_at: Date.now(),
+                      extended_by: S.user ? S.user.name : 'Coordenação',
+                      extension_count: (o.extension_count || 0) + 1 };
+      await DB.update('occurrences', S._prazoId, patch);
+      Object.assign(o, patch);
+    }
+  } catch (e) { toast(e.message, 'red'); return; }
+  DB.notificar('prorrogado', S._prazoId);
+  closeModal('modal-prazo'); renderPontos(); renderDash(); refreshBanner();
+  toast(`Prazo prorrogado em ${d} dia${d > 1 ? 's' : ''}. Coordenação notificada.`, 'green');
 }
 
 function refreshBanner() {
@@ -1439,7 +1697,7 @@ function renderLogDash() {
   const open = l.filter(o => o.status === 'open').length;
   const exp = l.filter(o => o.status === 'open' && remaining(o) <= 0).length;
   const hoje = l.filter(o => o.status === 'open' && remaining(o) > 0 && remaining(o) < 24 * H).length;
-  const onTime = l.filter(o => o.status === 'done' && toMs(o.resolved_at) - toMs(o.created_at) <= o.sla_hours * H).length;
+  const onTime = l.filter(o => o.status === 'done' && toMs(o.resolved_at) <= prazoDe(o)).length;
   const tempoMedio = done
     ? Math.round(l.filter(o => o.status === 'done')
         .reduce((a, o) => a + (toMs(o.resolved_at) - toMs(o.created_at)), 0) / done / H)
@@ -1517,18 +1775,19 @@ function renderLogDash() {
       : s.pct >= 80 ? '<span class="badge badge-green">Em dia</span>' : '<span class="badge badge-orange">Atenção</span>',
     s.pct, s.done + '/' + s.total)).join('') : noData('Nenhum ponto atribuído aos supervisores ainda.');
 
-  $('log-crit').innerHTML = Object.keys(CRIT).map(k => {
-    const c = CRIT[k], all = l.filter(o => o.criticality === k);
+  $('log-crit').innerHTML = SLA_OPCOES.map(hh => {
+    const c = slaInfo(hh), all = l.filter(o => (o.sla_hours || 72) === hh);
     if (!all.length) return '';
     const d = all.filter(o => o.status === 'done').length;
     const e = all.filter(o => o.status === 'open' && remaining(o) <= 0).length;
+    const pr = all.filter(o => prorrogado(o)).length;
     return `<div class="crit-stat-row">
       <div class="crit-dot dot-bg-${c.tone}">${dot(c.tone)}</div>
       <div style="flex:1">
-        <div style="font-size:13px;font-weight:700;color:var(--blue)">${c.label} · ${c.hours}h</div>
-        <div style="font-size:11.5px;color:var(--text3)">${all.length} registro${all.length !== 1 ? 's' : ''} · ${d} tratado${d !== 1 ? 's' : ''}${e ? ' · ' + e + ' vencido' + (e > 1 ? 's' : '') : ''}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--blue)">${hh}h · ${c.label}</div>
+        <div style="font-size:11.5px;color:var(--text3)">${all.length} registro${all.length !== 1 ? 's' : ''} · ${d} tratado${d !== 1 ? 's' : ''}${e ? ' · ' + e + ' vencido' + (e > 1 ? 's' : '') : ''}${pr ? ' · ' + pr + ' prorrogado' + (pr > 1 ? 's' : '') : ''}</div>
       </div>
-      <div class="rank-score">${Math.round(d / all.length * 100)}%</div></div>`;
+      <div class="rank-score">${all.length ? Math.round(d / all.length * 100) : 0}%</div></div>`;
   }).join('') || noData('Sem dados.');
 }
 
@@ -2762,6 +3021,8 @@ function renderCfgEmails() {
         <span class="evt-chip new ${e.on_new ? 'on' : ''}"      onclick="toggleEvt('${e.id}','on_new')">Novo</span>
         <span class="evt-chip warn ${e.on_warning ? 'on' : ''}" onclick="toggleEvt('${e.id}','on_warning')">12h</span>
         <span class="evt-chip exp ${e.on_expired ? 'on' : ''}"  onclick="toggleEvt('${e.id}','on_expired')">Vencido</span>
+        <span class="evt-chip upd ${e.on_update !== false ? 'on' : ''}" onclick="toggleEvt('${e.id}','on_update')">Devolutiva</span>
+        <span class="evt-chip done ${e.on_done !== false ? 'on' : ''}"  onclick="toggleEvt('${e.id}','on_done')">Concluído</span>
       </div>
       <button class="btn-icon del" title="Remover" onclick="removeEmail('${e.id}')">${ico('lixeira', 14)}</button>
     </div>`).join('') : noData('Nenhum destinatário cadastrado.');
@@ -2769,7 +3030,7 @@ function renderCfgEmails() {
 function openEmailModal() {
   fillSelect('eml-cd', [{ value: REGIONAL, label: 'Regional — todos os CDs' }, ...scopeCds().map(c => ({ value: c, label: c }))]);
   $('eml-name').value = ''; $('eml-addr').value = '';
-  ['eml-new', 'eml-warn', 'eml-exp'].forEach(i => $(i).checked = true);
+  ['eml-new', 'eml-warn', 'eml-exp', 'eml-upd', 'eml-done'].forEach(i => $(i).checked = true);
   openModal('modal-email');
 }
 async function submitEmail() {
@@ -2779,6 +3040,7 @@ async function submitEmail() {
   const rec = await DB.insert('notify_emails', {
     name, address: addr, cd: $('eml-cd').value,
     on_new: $('eml-new').checked, on_warning: $('eml-warn').checked, on_expired: $('eml-exp').checked,
+    on_update: $('eml-upd').checked, on_done: $('eml-done').checked,
   });
   M.notify_emails.push(rec);
   closeModal('modal-email'); renderCfgEmails();
@@ -2799,7 +3061,8 @@ async function removeEmail(id) {
 /* -- temas logística -- */
 function renderCfgLogThemes() {
   if (!S.draftLogThemes) S.draftLogThemes = JSON.parse(JSON.stringify(M.log_themes));
-  const sups = M.profiles.filter(u => ['supervisor', 'coordenador'].includes(u.role) && u.active !== false);
+  // o ponto cai sempre no coordenador, que depois designa quem executa
+  const sups = M.profiles.filter(u => ['coordenador', 'admin'].includes(u.role) && u.active !== false);
   const cds  = scopeCds();
   const visiveis = dashCds();
   $('cfg-log-themes').innerHTML = S.draftLogThemes
@@ -2820,14 +3083,12 @@ function renderCfgLogThemes() {
       <select class="sup-select cd-select" onchange="S.draftLogThemes[${i}].cd=this.value;renderCfgLogThemes()">
         ${cds.map(cd => `<option value="${esc(cd)}" ${t.cd === cd ? 'selected' : ''}>${esc(cd.replace('CD ', ''))}</option>`).join('')}
       </select>
-      <select class="sup-select crit-select ${t.criticality || 'media'}" onchange="S.draftLogThemes[${i}].criticality=this.value;renderCfgLogThemes()">
-        <option value="baixa" ${t.criticality === 'baixa' ? 'selected' : ''}>Baixa · 48h</option>
-        <option value="media" ${(t.criticality || 'media') === 'media' ? 'selected' : ''}>Média · 72h</option>
-        <option value="alta"  ${t.criticality === 'alta'? 'selected' : ''}>Alta · 96h</option>
+      <select class="sup-select sla-select t-${slaInfo(temaSla(t)).tone}" onchange="S.draftLogThemes[${i}].sla_hours=+this.value;renderCfgLogThemes()">
+        ${SLA_OPCOES.map(hh => `<option value="${hh}" ${temaSla(t) === hh ? 'selected' : ''}>${hh}h · ${SLA[hh].label}</option>`).join('')}
       </select>
       <select class="sup-select" onchange="S.draftLogThemes[${i}].supervisor_id=this.value||null">
-        <option value="">— sem supervisor —</option>
-        ${sups.map(u => `<option value="${u.id}" ${t.supervisor_id === u.id ? 'selected' : ''}>${ico('usuario',12)} ${esc(u.name)}</option>`).join('')}
+        <option value="">— sem coordenador —</option>
+        ${sups.map(u => `<option value="${u.id}" ${t.supervisor_id === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}
       </select>
       <button class="btn-icon del" title="Remover tema" onclick="removeLogTheme(${i})">${ico('lixeira', 14)}</button>
     </div></div>`;
@@ -2846,9 +3107,9 @@ function setTemaIco(i, nome) {
 
 function addLogTheme() {
   if (!S.draftLogThemes) S.draftLogThemes = JSON.parse(JSON.stringify(M.log_themes));
-  const sup = M.profiles.find(u => u.role === 'supervisor');
+  const sup = M.profiles.find(u => u.role === 'coordenador') || M.profiles.find(u => u.role === 'admin');
   S.draftLogThemes.push({ id: 'new_' + Date.now(), label: 'Novo Tema', icon: '', cd: currentCd(),
-    criticality: 'media', supervisor_id: sup ? sup.id : null, active: true });
+    criticality: 'media', sla_hours: 72, supervisor_id: sup ? sup.id : null, active: true });
   renderCfgLogThemes();
   toast('Tema adicionado. Clique em Salvar para confirmar.', 'blue');
 }
@@ -2975,9 +3236,9 @@ function exportCSV() {
     'Autor', 'Matrícula', 'Turno', 'Criado em', 'Status', 'Tratado em', 'Tratado por', 'Devolutiva', 'No prazo']];
   visibleOccurrences().sort((a, b) => toMs(b.created_at) - toMs(a.created_at)).forEach(o => {
     const t = byId(M.log_themes, o.theme_id) || { label: '—' };
-    const c = CRIT[o.criticality] || {};
+    const c = slaInfo(o.sla_hours || 72);
     const s = byId(M.profiles, o.supervisor_id);
-    const onTime = o.status === 'done' ? (toMs(o.resolved_at) - toMs(o.created_at) <= o.sla_hours * H ? 'Sim' : 'Não') : '';
+    const onTime = o.status === 'done' ? (toMs(o.resolved_at) <= prazoDe(o) ? 'Sim' : 'Não') : '';
     rows.push([o.id, o.cd, t.label, o.title, o.description, o.location || '', c.label || '', o.sla_hours,
       s ? s.name : '', o.author_name, o.author_matricula, o.author_shift || '',
       new Date(toMs(o.created_at)).toLocaleString('pt-BR'), o.status === 'done' ? 'Tratado' : 'Aberto',
@@ -3062,7 +3323,7 @@ function pdfLogistica() {
   const total = l.length, done = l.filter(o => o.status === 'done').length;
   const open = l.filter(o => o.status === 'open').length;
   const exp = l.filter(o => o.status === 'open' && remaining(o) <= 0).length;
-  const onTime = l.filter(o => o.status === 'done' && toMs(o.resolved_at) - toMs(o.created_at) <= o.sla_hours * H).length;
+  const onTime = l.filter(o => o.status === 'done' && toMs(o.resolved_at) <= prazoDe(o)).length;
 
   const ids = uniq(l.map(o => o.theme_id));
   const stats = ids.map(id => {
@@ -3081,7 +3342,7 @@ function pdfLogistica() {
 
   const linhas = l.sort((a, b) => toMs(b.created_at) - toMs(a.created_at)).slice(0, 120).map(o => {
     const t = byId(M.log_themes, o.theme_id) || { label: '—' };
-    const c = CRIT[o.criticality] || {};
+    const c = slaInfo(o.sla_hours || 72);
     const sp = byId(M.profiles, o.supervisor_id);
     const st = o.status === 'done' ? 'Tratado' : (remaining(o) <= 0 ? 'VENCIDO' : 'Em aberto');
     return `<tr class="${st === 'VENCIDO' ? 'r-exp' : st === 'Tratado' ? 'r-ok' : ''}">
@@ -3277,6 +3538,352 @@ function pdfRodadas() {
         <td>${r.status === 'open' ? '<span class="tagx t-md">Aberta</span>' : '<span class="tagx t-ok">Encerrada</span>'}</td></tr>`;
     }).join('')}
     </tbody></table>`, true);
+}
+
+/* ══════════ GERAR INDICADORES (PDF e PowerPoint) ══════════ */
+
+function openIndicadores() {
+  renderIndicResumo();
+  $('ind-status').textContent = '';
+  openModal('modal-indic');
+}
+
+/* Consolida os números dos três canais no período escolhido. */
+function coletarIndicadores() {
+  const dias = +$('ind-periodo').value;
+  const corte = dias ? Date.now() - dias * DAY : 0;
+  const cds = dashCds();
+
+  const occ = M.occurrences.filter(o => cds.includes(o.cd) && toMs(o.created_at) >= corte);
+  const done = occ.filter(o => o.status === 'done');
+  const abertos = occ.filter(o => o.status === 'open');
+  const vencidos = abertos.filter(o => remaining(o) <= 0);
+  const noPrazo = done.filter(o => toMs(o.resolved_at) <= prazoDe(o));
+  const prorrog = occ.filter(o => prorrogado(o));
+  const tempoMedio = done.length
+    ? done.reduce((a, o) => a + (toMs(o.resolved_at) - toMs(o.created_at)), 0) / done.length / H : 0;
+  const respMedio = done.filter(o => o.first_response_at).length
+    ? done.filter(o => o.first_response_at)
+        .reduce((a, o) => a + (toMs(o.first_response_at) - toMs(o.created_at)), 0)
+        / done.filter(o => o.first_response_at).length / H : 0;
+
+  // Cada CD tem sua própria linha de temas; no relatório interessa o
+  // assunto, não o registro. Agrupa pelo rótulo para não repetir "Limpeza".
+  const rotulo = o => (byId(M.log_themes, o.theme_id) || { label: '—' }).label;
+  const porTema = uniq(occ.map(rotulo)).map(label => {
+    const all = occ.filter(o => rotulo(o) === label);
+    const d = all.filter(o => o.status === 'done').length;
+    return { label, total: all.length, done: d,
+             pct: all.length ? Math.round(d / all.length * 100) : 0 };
+  }).sort((a, b) => b.total - a.total || a.label.localeCompare(b.label));
+
+  const porCd = cds.map(cd => {
+    const all = occ.filter(o => o.cd === cd);
+    const d = all.filter(o => o.status === 'done').length;
+    const v = all.filter(o => o.status === 'open' && remaining(o) <= 0).length;
+    return { cd, total: all.length, done: d, vencidos: v,
+             pct: all.length ? Math.round(d / all.length * 100) : 0 };
+  }).filter(x => x.total > 0);
+
+  // pesquisa
+  const res = M.survey_responses.filter(r => cds.includes(r.cd) && toMs(r.created_at) >= corte);
+  const ver = currentVersion();
+  const stats = surveyStatsFor(res, ver ? ver.themes : []);
+  const tc = stats.reduce((a, x) => a + x.count, 0);
+  const media = tc ? stats.reduce((a, x) => a + x.avg * x.count, 0) / tc : 0;
+  const satisf = tc ? Math.round(stats.reduce((a, x) => a + x.sat * x.count, 0) / tc) : 0;
+  const parts = M.survey_participations.filter(p => cds.includes(p.cd) && toMs(p.created_at) >= corte);
+  const aptos = M.employees.filter(e => (cds.includes(e.cd) || e.cd === REGIONAL) && e.active !== false).length;
+
+  // votação
+  const eleicoes = M.elections.filter(e => cds.includes(e.cd));
+  const eleitos = eleicoes.filter(e => e.status === 'closed')
+    .flatMap(e => (e.winners || []).map(w => ({ ...w, cd: e.cd, titulo: e.title })));
+
+  return {
+    dias, periodo: dias ? `Últimos ${dias} dias` : 'Histórico completo',
+    cds, cdLabel: (S.dashCd === REGIONAL || S.dashCd === 'TODOS') ? 'Regional — todos os CDs' : S.dashCd,
+    total: occ.length, done: done.length, abertos: abertos.length, vencidos: vencidos.length,
+    pctResol: occ.length ? Math.round(done.length / occ.length * 100) : 0,
+    pctPrazo: done.length ? Math.round(noPrazo.length / done.length * 100) : 0,
+    prorrog: prorrog.length, tempoMedio: Math.round(tempoMedio), respMedio: Math.round(respMedio),
+    porTema, porCd,
+    survRespostas: res.length, survMedia: media, survSatisf: satisf,
+    survAdesao: aptos ? Math.round(parts.length / aptos * 100) : 0,
+    survStats: [...stats].sort((a, b) => b.avg - a.avg),
+    sugestoes: res.filter(r => r.suggestion).length,
+    eleitos, aptos,
+  };
+}
+
+function renderIndicResumo() {
+  const d = coletarIndicadores();
+  $('ind-resumo').innerHTML = `
+    <div class="cb-label">${esc(d.cdLabel)} · ${esc(d.periodo)}</div>
+    <div class="ind-chips">
+      <span class="ind-chip">${d.total} ponto${d.total !== 1 ? 's' : ''}</span>
+      <span class="ind-chip ok">${d.pctResol}% resolvidos</span>
+      ${d.vencidos ? `<span class="ind-chip bad">${d.vencidos} vencido${d.vencidos > 1 ? 's' : ''}</span>` : ''}
+      <span class="ind-chip">${d.survRespostas} resposta${d.survRespostas !== 1 ? 's' : ''} de pesquisa</span>
+      ${d.eleitos.length ? `<span class="ind-chip">${d.eleitos.length} porta-voz(es)</span>` : ''}
+    </div>`;
+}
+
+/* ---- PDF ---- */
+function gerarIndicadoresPDF(d) {
+  const linha = (r, v, destaque) =>
+    `<tr><td>${esc(r)}</td><td style="text-align:right;font-weight:${destaque ? 800 : 600};
+      ${destaque ? 'color:' + destaque : ''}">${v}</td></tr>`;
+
+  pdfShell('Indicadores Gerais', esc(d.periodo), `
+    <div class="kpis">
+      <div class="kpi"><div class="v">${d.total}</div><div class="l">Pontos registrados</div></div>
+      <div class="kpi green"><div class="v">${d.pctResol}%</div><div class="l">Taxa de resolução</div></div>
+      <div class="kpi ${d.pctPrazo >= 80 ? 'green' : 'orange'}"><div class="v">${d.pctPrazo}%</div><div class="l">Concluídos no prazo</div></div>
+      <div class="kpi red"><div class="v">${d.vencidos}</div><div class="l">Vencidos em aberto</div></div>
+      <div class="kpi"><div class="v">${d.tempoMedio}h</div><div class="l">Tempo médio</div></div>
+      <div class="kpi"><div class="v">${d.respMedio}h</div><div class="l">1ª resposta</div></div>
+    </div>
+
+    <div class="two">
+      <div><h2>Por Centro de Distribuição</h2>
+        <table><thead><tr><th>CD</th><th>Total</th><th>Tratados</th><th>Vencidos</th><th>%</th></tr></thead><tbody>
+        ${d.porCd.length ? d.porCd.map(c => `<tr class="${c.vencidos ? 'r-exp' : ''}">
+          <td><strong>${esc(c.cd)}</strong></td><td>${c.total}</td><td>${c.done}</td>
+          <td>${c.vencidos || '—'}</td><td><strong>${c.pct}%</strong></td></tr>`).join('')
+          : '<tr><td colspan="5" class="dim">Sem dados</td></tr>'}
+        </tbody></table></div>
+      <div><h2>Por tema</h2>
+        <table><thead><tr><th>Tema</th><th>Total</th><th>Tratados</th><th>%</th></tr></thead><tbody>
+        ${d.porTema.length ? d.porTema.slice(0, 10).map(t => `<tr>
+          <td>${esc(t.label)}</td><td>${t.total}</td><td>${t.done}</td>
+          <td><strong>${t.pct}%</strong></td></tr>`).join('')
+          : '<tr><td colspan="4" class="dim">Sem dados</td></tr>'}
+        </tbody></table></div>
+    </div>
+
+    <h2>Pesquisa de clima</h2>
+    <div class="two">
+      <div><table><tbody>
+        ${linha('Respostas recebidas', d.survRespostas)}
+        ${linha('Adesão dos colaboradores', d.survAdesao + '%')}
+        ${linha('Média geral (1 a 5)', d.survMedia ? d.survMedia.toFixed(1) : '—',
+                d.survMedia >= 4 ? '#0e7a45' : d.survMedia >= 3 ? '#c47800' : '#c01c1c')}
+        ${linha('Satisfação', d.survSatisf + '%')}
+        ${linha('Sugestões registradas', d.sugestoes)}
+      </tbody></table></div>
+      <div><table><thead><tr><th>Tema avaliado</th><th>Média</th><th>Satisfação</th></tr></thead><tbody>
+        ${d.survStats.length ? d.survStats.map(x => `<tr>
+          <td>${esc(x.label)}</td><td><strong>${x.avg.toFixed(1)}</strong></td>
+          <td>${x.sat}%</td></tr>`).join('')
+          : '<tr><td colspan="3" class="dim">Nenhuma resposta no período</td></tr>'}
+      </tbody></table></div>
+    </div>
+
+    <h2>Porta-vozes eleitos</h2>
+    <table><thead><tr><th>Nome</th><th>Turno</th><th>Setor</th><th>CD</th><th>Votos</th></tr></thead><tbody>
+    ${d.eleitos.length ? d.eleitos.map(w => `<tr class="r-ok">
+      <td><strong>${esc(w.name)}</strong></td><td>${esc(w.shift)}</td>
+      <td>${esc(w.sector || '—')}</td><td>${esc(w.cd)}</td><td>${w.votes}</td></tr>`).join('')
+      : '<tr><td colspan="5" class="dim">Nenhuma eleição encerrada</td></tr>'}
+    </tbody></table>`, true);
+}
+
+/* ---- PowerPoint ---- */
+function carregarPptx() {
+  if (window.PptxGenJS) return Promise.resolve();
+  return new Promise((ok, erro) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js';
+    sc.onload = ok;
+    sc.onerror = () => erro(new Error('Não foi possível carregar o gerador de PowerPoint.'));
+    document.head.appendChild(sc);
+  });
+}
+
+const PPT = { navy: '0A2540', azul: '2563EB', verde: '16A34A', ambar: 'D97706',
+              vermelho: 'DC2626', cinza: '64748B', claro: 'F6F8FB', branco: 'FFFFFF' };
+
+async function gerarIndicadoresPPTX(d) {
+  await carregarPptx();
+  const p = new PptxGenJS();
+  p.layout = 'LAYOUT_16x9';
+  p.author = 'Voz da Operação';
+  p.title  = 'Indicadores — Voz da Operação';
+
+  const capaFundo = s => s.background = { color: PPT.navy };
+  const rodape = (s, txt) => s.addText(txt, { x: 0.4, y: 5.05, w: 9.2, h: 0.3,
+    fontSize: 9, color: PPT.cinza, align: 'left' });
+
+  const titulo = (s, t, sub) => {
+    s.addText(t, { x: 0.5, y: 0.34, w: 9, h: 0.5, fontSize: 24, bold: true, color: PPT.navy });
+    if (sub) s.addText(sub, { x: 0.5, y: 0.84, w: 9, h: 0.3, fontSize: 12, color: PPT.cinza });
+  };
+
+  const cartao = (s, x, y, w, valor, rotulo, cor) => {
+    s.addShape(p.ShapeType.roundRect, { x, y, w, h: 1.12, fill: { color: PPT.branco },
+      line: { color: 'E2E8F0', width: 1 }, rectRadius: 0.08 });
+    s.addText(String(valor), { x, y: y + 0.12, w, h: 0.55, fontSize: 28, bold: true,
+      color: cor || PPT.navy, align: 'center' });
+    s.addText(rotulo, { x, y: y + 0.68, w, h: 0.3, fontSize: 10, color: PPT.cinza, align: 'center' });
+  };
+
+  /* --- 1. Capa --- */
+  let s = p.addSlide(); capaFundo(s);
+  s.addText('VOZ DA OPERAÇÃO', { x: 0.7, y: 1.6, w: 8.6, h: 0.4, fontSize: 13,
+    bold: true, color: '7D93AD', charSpacing: 2 });
+  s.addText('Indicadores Gerais', { x: 0.7, y: 2.0, w: 8.6, h: 0.9, fontSize: 40,
+    bold: true, color: PPT.branco });
+  s.addText(`${d.cdLabel}  ·  ${d.periodo}`, { x: 0.7, y: 2.95, w: 8.6, h: 0.4,
+    fontSize: 15, color: 'A8BDD2' });
+  s.addText(`Emitido em ${new Date().toLocaleDateString('pt-BR')} por ${S.user.name}`,
+    { x: 0.7, y: 4.6, w: 8.6, h: 0.3, fontSize: 10, color: '5A7390' });
+
+  /* --- 2. Pontos de atenção --- */
+  s = p.addSlide(); s.background = { color: PPT.claro };
+  titulo(s, 'Pontos de Atenção', 'Visão consolidada do período');
+  cartao(s, 0.5, 1.35, 1.75, d.total, 'Registrados');
+  cartao(s, 2.4, 1.35, 1.75, d.done, 'Tratados', PPT.verde);
+  cartao(s, 4.3, 1.35, 1.75, d.abertos, 'Em aberto');
+  cartao(s, 6.2, 1.35, 1.75, d.vencidos, 'Vencidos', d.vencidos ? PPT.vermelho : PPT.verde);
+  cartao(s, 8.1, 1.35, 1.4, d.pctResol + '%', 'Resolução', PPT.azul);
+  cartao(s, 0.5, 2.65, 2.3, d.pctPrazo + '%', 'Concluídos no prazo',
+    d.pctPrazo >= 80 ? PPT.verde : PPT.ambar);
+  cartao(s, 2.95, 2.65, 2.3, d.tempoMedio + 'h', 'Tempo médio de tratativa');
+  cartao(s, 5.4, 2.65, 2.3, d.respMedio + 'h', 'Até a 1ª resposta');
+  cartao(s, 7.85, 2.65, 1.65, d.prorrog, 'Prorrogados', PPT.ambar);
+  rodape(s, 'Prazo definido pelo tema: 24h, 48h, 72h ou 96h.');
+
+  /* --- 3. Gráfico por tema --- */
+  if (d.porTema.length) {
+    s = p.addSlide(); s.background = { color: PPT.claro };
+    titulo(s, 'Pontos por tema', 'Volume e percentual tratado');
+    s.addChart(p.ChartType.bar, [{
+      name: 'Registros',
+      labels: d.porTema.slice(0, 8).map(t => t.label),
+      values: d.porTema.slice(0, 8).map(t => t.total),
+    }], { x: 0.5, y: 1.3, w: 5.4, h: 3.5, barDir: 'col', chartColors: [PPT.azul],
+          showValue: true, dataLabelFontSize: 10, catAxisLabelFontSize: 9,
+          valAxisLabelFontSize: 9, showLegend: false,
+          valAxisMajorUnit: 1, valAxisMinVal: 0, valAxisLabelFormatCode: '0' });
+    const linhas = [[
+      { text: 'Tema', options: { bold: true, color: PPT.navy, fill: { color: 'E8F0FC' } } },
+      { text: 'Total', options: { bold: true, color: PPT.navy, fill: { color: 'E8F0FC' }, align: 'center' } },
+      { text: '% tratado', options: { bold: true, color: PPT.navy, fill: { color: 'E8F0FC' }, align: 'center' } },
+    ], ...d.porTema.slice(0, 8).map(t => [
+      { text: t.label }, { text: String(t.total), options: { align: 'center' } },
+      { text: t.pct + '%', options: { align: 'center', bold: true,
+        color: t.pct >= 80 ? PPT.verde : t.pct >= 50 ? PPT.ambar : PPT.vermelho } },
+    ])];
+    s.addTable(linhas, { x: 6.1, y: 1.3, w: 3.4, fontSize: 10, border: { pt: 0.5, color: 'E2E8F0' },
+      rowH: 0.32, valign: 'middle' });
+  }
+
+  /* --- 4. Por CD --- */
+  if (d.porCd.length) {
+    s = p.addSlide(); s.background = { color: PPT.claro };
+    titulo(s, 'Comparativo entre CDs', 'Volume, tratativa e pendências');
+    const linhas = [[
+      { text: 'Centro de Distribuição', options: { bold: true, color: PPT.navy, fill: { color: 'E8F0FC' } } },
+      { text: 'Registrados', options: { bold: true, color: PPT.navy, fill: { color: 'E8F0FC' }, align: 'center' } },
+      { text: 'Tratados', options: { bold: true, color: PPT.navy, fill: { color: 'E8F0FC' }, align: 'center' } },
+      { text: 'Vencidos', options: { bold: true, color: PPT.navy, fill: { color: 'E8F0FC' }, align: 'center' } },
+      { text: '% resolução', options: { bold: true, color: PPT.navy, fill: { color: 'E8F0FC' }, align: 'center' } },
+    ], ...d.porCd.map(c => [
+      { text: c.cd, options: { bold: true } },
+      { text: String(c.total), options: { align: 'center' } },
+      { text: String(c.done), options: { align: 'center' } },
+      { text: c.vencidos ? String(c.vencidos) : '—',
+        options: { align: 'center', color: c.vencidos ? PPT.vermelho : PPT.cinza, bold: !!c.vencidos } },
+      { text: c.pct + '%', options: { align: 'center', bold: true,
+        color: c.pct >= 80 ? PPT.verde : c.pct >= 50 ? PPT.ambar : PPT.vermelho } },
+    ])];
+    s.addTable(linhas, { x: 0.5, y: 1.4, w: 9, fontSize: 12, border: { pt: 0.5, color: 'E2E8F0' },
+      rowH: 0.42, valign: 'middle' });
+  }
+
+  /* --- 5. Pesquisa de clima --- */
+  s = p.addSlide(); s.background = { color: PPT.claro };
+  titulo(s, 'Pesquisa de Clima', 'Percepção da operação');
+  cartao(s, 0.5, 1.35, 2.15, d.survRespostas, 'Respostas');
+  cartao(s, 2.8, 1.35, 2.15, d.survAdesao + '%', 'Adesão');
+  cartao(s, 5.1, 1.35, 2.15, d.survMedia ? d.survMedia.toFixed(1) : '—', 'Média geral',
+    d.survMedia >= 4 ? PPT.verde : d.survMedia >= 3 ? PPT.ambar : PPT.vermelho);
+  cartao(s, 7.4, 1.35, 2.1, d.survSatisf + '%', 'Satisfação');
+  if (d.survStats.length) {
+    s.addChart(p.ChartType.bar, [{
+      name: 'Média',
+      labels: d.survStats.map(x => x.label),
+      values: d.survStats.map(x => +x.avg.toFixed(1)),
+    }], { x: 0.5, y: 2.7, w: 9, h: 2.2, barDir: 'col', chartColors: [PPT.azul],
+          showValue: true, dataLabelFontSize: 10, valAxisMaxVal: 5, valAxisMinVal: 0,
+          valAxisMajorUnit: 1, valAxisLabelFormatCode: '0',
+          catAxisLabelFontSize: 9, valAxisLabelFontSize: 9, showLegend: false });
+  } else {
+    // respostas de uma versão anterior da pesquisa não entram nas médias
+    s.addText(d.survRespostas
+        ? 'As respostas do período são de uma versão anterior da pesquisa — médias não comparáveis.'
+        : 'Nenhuma resposta registrada no período.',
+      { x: 0.5, y: 3.1, w: 9, h: 0.4, fontSize: 13, color: PPT.cinza, align: 'center' });
+  }
+
+  /* --- 6. Porta-vozes --- */
+  s = p.addSlide(); s.background = { color: PPT.claro };
+  titulo(s, 'Porta-vozes', 'Representantes eleitos pela operação');
+  if (d.eleitos.length) {
+    const linhas = [[
+      { text: 'Nome', options: { bold: true, color: PPT.navy, fill: { color: 'E8F0FC' } } },
+      { text: 'Turno', options: { bold: true, color: PPT.navy, fill: { color: 'E8F0FC' } } },
+      { text: 'Setor', options: { bold: true, color: PPT.navy, fill: { color: 'E8F0FC' } } },
+      { text: 'CD', options: { bold: true, color: PPT.navy, fill: { color: 'E8F0FC' } } },
+      { text: 'Votos', options: { bold: true, color: PPT.navy, fill: { color: 'E8F0FC' }, align: 'center' } },
+    ], ...d.eleitos.map(w => [
+      { text: w.name, options: { bold: true } }, { text: w.shift },
+      { text: w.sector || '—' }, { text: w.cd },
+      { text: String(w.votes), options: { align: 'center', bold: true, color: PPT.azul } },
+    ])];
+    s.addTable(linhas, { x: 0.5, y: 1.4, w: 9, fontSize: 12, border: { pt: 0.5, color: 'E2E8F0' },
+      rowH: 0.42, valign: 'middle' });
+  } else {
+    s.addText('Nenhuma eleição encerrada até o momento.',
+      { x: 0.5, y: 2.6, w: 9, h: 0.4, fontSize: 13, color: PPT.cinza, align: 'center' });
+  }
+
+  /* --- 7. Fecho --- */
+  s = p.addSlide(); capaFundo(s);
+  s.addText('Sua voz muda a operação', { x: 0.7, y: 2.1, w: 8.6, h: 0.8,
+    fontSize: 32, bold: true, color: PPT.branco });
+  s.addText('Voz da Operação · Lactalis Brasil — Logística',
+    { x: 0.7, y: 2.95, w: 8.6, h: 0.4, fontSize: 14, color: 'A8BDD2' });
+
+  const nome = 'indicadores-voz-da-operacao-' + new Date().toISOString().slice(0, 10) + '.pptx';
+  await p.writeFile({ fileName: nome });
+}
+
+async function gerarIndicadores(formato) {
+  const d = coletarIndicadores();
+  if (!d.total && !d.survRespostas && !d.eleitos.length) {
+    toast('Nenhum dado no período escolhido.', 'orange'); return;
+  }
+  const st = $('ind-status');
+  try {
+    if (formato === 'pdf') {
+      closeModal('modal-indic');
+      gerarIndicadoresPDF(d);
+    } else {
+      st.textContent = 'Montando a apresentação...';
+      st.className = 'field-hint';
+      await gerarIndicadoresPPTX(d);
+      st.textContent = 'Apresentação baixada.';
+      st.className = 'field-hint ok';
+      setTimeout(() => closeModal('modal-indic'), 900);
+      toast('PowerPoint gerado!', 'green');
+    }
+  } catch (e) {
+    st.textContent = e.message;
+    st.className = 'field-hint err';
+    toast(e.message, 'red');
+  }
 }
 
 /* ══════════ BACKUP ══════════ */
