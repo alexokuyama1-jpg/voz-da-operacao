@@ -943,3 +943,53 @@ button .ic,.badge .ic,.list-meta .ic,.occ-meta .ic{margin-right:1px}
 .evt-chip.upd.on  { background: #4f46e5; border-color: #4f46e5; color: #fff; }
 .evt-chip.done { border-color: #bbf7d0; color: #16a34a; }
 .evt-chip.done.on { background: #16a34a; border-color: #16a34a; color: #fff; }
+
+/* ---- Painel de pendências (substitui o aviso por e-mail) ---- */
+.pend-box {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--orange, #ea580c);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 3px rgba(10, 37, 64, .06);
+}
+
+.pend-head { display: flex; align-items: center; gap: 12px; }
+
+.pend-ico {
+  width: 32px; height: 32px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff4e8; color: #ea580c; border-radius: 9px;
+}
+
+.pend-title { font-weight: 700; color: var(--blue); font-size: .98rem; }
+.pend-sub   { font-size: .8rem; color: var(--text2); margin-top: 1px; }
+.pend-head .btn-ghost { margin-left: auto; flex: none; }
+
+.pend-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+.pend-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: .75rem; font-weight: 600;
+  padding: 3px 9px; border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.pend-chip.red    { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+.pend-chip.orange { background: #fff7ed; color: #ea580c; border-color: #fed7aa; }
+.pend-chip.blue   { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+
+.pill-badge {
+  display: inline-block;
+  min-width: 17px; padding: 0 5px;
+  margin-left: 3px;
+  background: #dc2626; color: #fff;
+  border-radius: 999px;
+  font-size: .68rem; font-weight: 700; line-height: 17px; text-align: center;
+}
+
+@media (max-width: 560px) {
+  .pend-head { flex-wrap: wrap; }
+  .pend-head .btn-ghost { margin-left: 0; width: 100%; margin-top: 8px; }
+}

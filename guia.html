@@ -211,7 +211,7 @@ footer strong{color:#fff;display:block;font-size:14px;margin-bottom:5px}
     <li><b>Digite sua matrícula.</b> O sistema mostra seu nome para você conferir.</li>
     <li><b>Escolha o tema.</b> Cada tema já vem com o prazo e o coordenador definidos — você não escolhe urgência.</li>
     <li><b>Descreva o que houve.</b> Assunto curto e uma explicação. Informe o local, se ajudar a encontrar.</li>
-    <li><b>Confira e envie.</b> O prazo começa a contar na hora, e o coordenador recebe um e-mail.</li>
+    <li><b>Confira e envie.</b> O prazo começa a contar na hora e o ponto entra na lista do coordenador.</li>
   </ol>
 
   <div class="aviso info">
@@ -287,7 +287,7 @@ footer strong{color:#fff;display:block;font-size:14px;margin-bottom:5px}
   <div class="fluxo">
     <div class="etapa"><div class="etapa-n">1</div><div class="etapa-c">
       <div class="etapa-t">Ponto registrado <span class="quem colab">colaborador</span></div>
-      <div class="etapa-d">O coordenador do tema recebe um e-mail com a descrição e o prazo limite.</div>
+      <div class="etapa-d">O ponto aparece em <b>Minhas pendências</b> do coordenador do tema, com a descrição e o prazo limite.</div>
     </div></div>
     <div class="etapa"><div class="etapa-n">2</div><div class="etapa-c">
       <div class="etapa-t">Designar quem executa <span class="quem coord">coordenador</span></div>
@@ -303,7 +303,7 @@ footer strong{color:#fff;display:block;font-size:14px;margin-bottom:5px}
     </div></div>
     <div class="etapa"><div class="etapa-n">5</div><div class="etapa-c">
       <div class="etapa-t">Concluir <span class="quem coord">coordenador</span></div>
-      <div class="etapa-d">No botão <b>Concluir</b>, escreva o que foi feito. Um e-mail de devolutiva é enviado automaticamente para repasse à gerência e à equipe.</div>
+      <div class="etapa-d">No botão <b>Concluir</b>, escreva o que foi feito. A devolutiva fica registrada no ponto e entra nos indicadores — o coordenador repassa à gerência e à equipe.</div>
     </div></div>
   </div>
 
@@ -402,11 +402,12 @@ footer strong{color:#fff;display:block;font-size:14px;margin-bottom:5px}
 
   <div class="aviso alerta">
     <svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-    <div>Tema sem coordenador gera ponto sem dono e <strong>sem e-mail de aviso</strong>. Confira essa coluna sempre que criar um tema.</div>
+    <div>Tema sem coordenador gera ponto <strong>sem dono</strong> — ele não aparece nas pendências de ninguém. Confira essa coluna sempre que criar um tema.</div>
   </div>
 
-  <h3>Notificações por e-mail</h3>
-  <p>O coordenador do tema sempre recebe. A lista em Configurações → Notificações serve para incluir gerência ou outras áreas, com três chaves independentes: novo ponto, devolutiva e conclusão.</p>
+  <h3>Avisos: por que não chega e-mail</h3>
+  <p>O envio automático está <strong>desligado</strong>, e não é esquecimento. O domínio <code>br.lactalis.com</code> é protegido contra falsificação (SPF <code>-all</code> e DMARC <code>p=reject</code>), então nenhum serviço de fora pode mandar e-mail em nome da Lactalis sem a TI autorizar. Enquanto isso não acontece, o aviso é pela própria tela.</p>
+  <p>Cada coordenador tem, em <strong>Pontos de Atenção</strong>, o painel <strong>Minhas pendências</strong>: quantos pontos esperam por ele e o que falta em cada um — sem responsável, sem devolutiva, vencendo em menos de 12h ou já vencido. A lista em Configurações → Notificações continua guardada e passa a valer no dia em que o envio for liberado.</p>
 
   <h3>QR Codes</h3>
   <ol class="passos">
@@ -446,8 +447,8 @@ footer strong{color:#fff;display:block;font-size:14px;margin-bottom:5px}
   <details class="faq"><summary>Esqueci minha senha de gestor</summary>
     <div class="faq-c"><p>Procure o administrador. Ele redefine em Configurações → Gestores, no ícone de edição.</p></div></details>
 
-  <details class="faq"><summary>O e-mail não chegou</summary>
-    <div class="faq-c"><p>Confira a caixa de spam. Se não estiver lá, verifique com o administrador se o tema tem coordenador e se o coordenador tem e-mail cadastrado.</p></div></details>
+  <details class="faq"><summary>O sistema avisa por e-mail?</summary>
+    <div class="faq-c"><p>Ainda não. O domínio da empresa bloqueia envio por serviços externos, e liberar isso depende da TI. Por ora o aviso é pelo painel <strong>Minhas pendências</strong>, em Pontos de Atenção — vale olhar no início de cada turno.</p></div></details>
 
   <details class="faq"><summary>Preciso instalar algum aplicativo?</summary>
     <div class="faq-c"><p>Não. Funciona pelo navegador do celular. Se quiser acesso rápido, use "Adicionar à tela de início" no menu do navegador.</p></div></details>

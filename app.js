@@ -993,7 +993,7 @@ function renderPontos(f) {
     ? (S.user.role === 'supervisor' ? 'Apenas os pontos sob sua responsabilidade · ' + escopo
        : `${ROLE_LABEL[S.user.role]} · ${escopo}`)
     : 'Acompanhamento dos registros e prazos';
-  renderOccKpis(); renderOccList();
+  renderOccKpis(); renderPendencias(); renderOccList();
 }
 function onPontosCdChange() {
   S.pontosCd = $('pontos-cd').value;
@@ -1006,6 +1006,73 @@ function filterOcc(f, btn) {
   document.querySelectorAll('#page-pontos .pill-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active'); renderPontos(f);
 }
+/* ══════════ PENDÊNCIAS ══════════
+   Sem e-mail automático, é a tela que avisa. Para cada ponto em
+   aberto sob minha responsabilidade, diz o que falta — e o que
+   está mais perto de estourar vem primeiro. */
+const PEND = {
+  vencido:   { ordem: 0, label: 'Vencido',            tom: 'red',    ico: 'alerta'  },
+  vencendo:  { ordem: 1, label: 'Vence em menos de 12h', tom: 'orange', ico: 'relogio' },
+  semResp:   { ordem: 2, label: 'Sem responsável',    tom: 'blue',   ico: 'usuario' },
+  semDevol:  { ordem: 3, label: 'Sem devolutiva',     tom: 'blue',   ico: 'balao'   },
+};
+
+/* O ponto é meu se eu posso tratá-lo ou se fui designado nele. */
+function meuPonto(o) {
+  if (!S.user || !o || o.status !== 'open') return false;
+  if (canTreat(o)) return true;
+  return o.assignee_kind === 'profile' && o.assignee_id === S.user.id;
+}
+
+function pendenciaDe(o) {
+  if (!meuPonto(o)) return null;
+  const r = remaining(o);
+  if (r <= 0) return 'vencido';
+  if (r < 12 * H) return 'vencendo';
+  if (!o.assignee_name) return 'semResp';
+  if (!o.first_response_at) return 'semDevol';
+  return null;
+}
+
+function minhasPendencias() {
+  return pontosOccurrences()
+    .map(o => ({ o, p: pendenciaDe(o) }))
+    .filter(x => x.p)
+    .sort((a, b) => PEND[a.p].ordem - PEND[b.p].ordem || remaining(a.o) - remaining(b.o));
+}
+
+function renderPendencias() {
+  const caixa = $('occ-pend');
+  if (!caixa) return;
+  const lista = S.user ? minhasPendencias() : [];
+  const aba = $('occ-tab-pend');
+  if (aba) {
+    aba.classList.toggle('hidden', !S.user);
+    aba.innerHTML = 'Minhas pendências' +
+      (lista.length ? ` <span class="pill-badge">${lista.length}</span>` : '');
+  }
+  if (!lista.length) { caixa.classList.add('hidden'); return; }
+
+  const grupos = Object.keys(PEND)
+    .map(k => ({ k, n: lista.filter(x => x.p === k).length }))
+    .filter(g => g.n);
+
+  caixa.classList.remove('hidden');
+  caixa.innerHTML = `
+    <div class="pend-head">
+      <span class="pend-ico">${ico('alerta', 16)}</span>
+      <div>
+        <div class="pend-title">${lista.length} ponto${lista.length > 1 ? 's' : ''} esperando você</div>
+        <div class="pend-sub">O sistema ainda não envia e-mail — esta é a sua caixa de entrada.</div>
+      </div>
+      <button class="btn-ghost sm" onclick="filterOcc('pendencia', document.getElementById('occ-tab-pend'))">Ver lista</button>
+    </div>
+    <div class="pend-chips">
+      ${grupos.map(g => `<span class="pend-chip ${PEND[g.k].tom}">
+        ${ico(PEND[g.k].ico, 12)} ${g.n} ${esc(PEND[g.k].label.toLowerCase())}</span>`).join('')}
+    </div>`;
+}
+
 function renderOccKpis() {
   const l = pontosOccurrences();
   const open = l.filter(o => o.status === 'open').length;
@@ -1023,9 +1090,19 @@ function renderOccList() {
   if (S.filter === 'aberto') l = l.filter(o => o.status === 'open');
   if (S.filter === 'vencido') l = l.filter(o => o.status === 'open' && remaining(o) <= 0);
   if (S.filter === 'tratado') l = l.filter(o => o.status === 'done');
+  if (S.filter === 'pendencia') {
+    const ids = minhasPendencias().map(x => x.o.id);
+    l = l.filter(o => ids.includes(o.id))
+         .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+  }
   $('occ-count').textContent = l.length + ' registro' + (l.length !== 1 ? 's' : '');
 
   if (!l.length) {
+    if (S.filter === 'pendencia') {
+      $('occ-list').innerHTML = emptyBox('check', 'Nada esperando por você',
+        'Todo ponto sob sua responsabilidade tem responsável, devolutiva e prazo em dia.');
+      return;
+    }
     $('occ-list').innerHTML = emptyBox(S.filter === 'tratado' ? 'check' : 'lista',
       'Nenhum ponto ' + (S.filter === 'tratado' ? 'tratado' : S.filter === 'vencido' ? 'vencido' : S.filter === 'aberto' ? 'em aberto' : 'registrado'),
       S.filter === 'todos' ? 'Registre um novo ponto de atenção para começar.' : 'Nenhum ponto nesta categoria.');
@@ -1358,7 +1435,7 @@ async function confirmResposta() {
   } catch (e) { toast(e.message, 'red'); return; }
   DB.notificar('resposta', S._respId);
   closeModal('modal-resposta'); renderPontos(); renderDash();
-  toast('Devolutiva registrada. Coordenação notificada por e-mail.', 'green');
+  toast('Devolutiva registrada. Aparece nas pendências da coordenação.', 'green');
 }
 
 /* ---- Prorrogar prazo ---- */
@@ -1421,7 +1498,7 @@ async function confirmPrazo() {
   } catch (e) { toast(e.message, 'red'); return; }
   DB.notificar('prorrogado', S._prazoId);
   closeModal('modal-prazo'); renderPontos(); renderDash(); refreshBanner();
-  toast(`Prazo prorrogado em ${d} dia${d > 1 ? 's' : ''}. Coordenação notificada.`, 'green');
+  toast(`Prazo prorrogado em ${d} dia${d > 1 ? 's' : ''}.`, 'green');
 }
 
 function refreshBanner() {
