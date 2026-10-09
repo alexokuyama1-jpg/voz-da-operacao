@@ -3250,12 +3250,45 @@ function removeLogTheme(i) {
   S.draftLogThemes.splice(i, 1);
   renderCfgLogThemes();
 }
+/* Colunas que existem de fato na tabela log_themes.
+   Online os temas chegam pela view v_log_themes, que traz também
+   supervisor_name e supervisor_email — mandar esses de volta faz
+   o banco recusar a gravação inteira. */
+const COLUNAS_TEMA = ['id', 'label', 'icon', 'cd', 'criticality',
+                      'sla_hours', 'supervisor_id', 'active'];
+
+function temaParaBanco(t) {
+  const row = {};
+  COLUNAS_TEMA.forEach(c => { if (t[c] !== undefined) row[c] = t[c]; });
+  // tema novo mantém o prefixo: é assim que a camada de dados
+  // sabe que é INSERT e deixa o banco gerar o id
+  if (!t.id || String(t.id).startsWith('new_')) row.id = 'new_';
+  row.active = t.active !== false;
+  return row;
+}
+
 async function saveLogThemes() {
-  await DB.replaceAll('log_themes', S.draftLogThemes.map(t => ({ ...t, id: t.id.startsWith('new_') ? 't_' + Math.random().toString(36).slice(2, 9) : t.id })));
-  M.log_themes = await DB.select('log_themes');
-  S.draftLogThemes = null;
-  renderCfgLogThemes(); renderLogDash();
-  toast('Temas salvos com sucesso!', 'green');
+  const btn = document.querySelector('#dtab-config button[onclick="saveLogThemes()"]');
+  if (btn) { btn.disabled = true; }
+  try {
+    await DB.replaceAll('log_themes', S.draftLogThemes.map(temaParaBanco),
+                        { escopo: M.log_themes.map(t => t.id) });
+    M.log_themes = await DB.select('log_themes');
+    if (DB.online && !S.user) {
+      const via = await DB.select('v_log_themes');
+      if (via.length) M.log_themes = via;
+    }
+    S.draftLogThemes = null;
+    renderCfgLogThemes(); renderLogDash();
+    toast('Temas salvos com sucesso!', 'green');
+  } catch (e) {
+    // antes o erro subia sem tratamento: a tela ficava igual e
+    // o administrador não tinha como saber que nada foi gravado
+    toast('Não foi possível salvar: ' + e.message, 'red');
+    console.error('[temas]', e);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 /* -- temas pesquisa -- */

@@ -288,14 +288,20 @@ const DB = (function () {
       return true;
     },
 
-    async replaceAll(table, rows) {
+    /* opcoes.escopo — ids que esta tela gerencia. Sem ele, qualquer
+       linha que o chamador nao esteja enxergando seria apagada:
+       basta a origem dos dados ser uma view filtrada. */
+    async replaceAll(table, rows, opcoes) {
       if (!ONLINE) {
         load()[table] = clone(rows); persist();
         return true;
       }
-      const keep = rows.filter(r => r.id && !String(r.id).startsWith('new_')).map(r => r.id);
+      const escopo = opcoes && opcoes.escopo ? opcoes.escopo.map(String) : null;
+      const keep = rows.filter(r => r.id && !String(r.id).startsWith('new_')).map(r => String(r.id));
       const existing = soft(await sb.from(table).select('id'));
-      const toDelete = existing.map(r => r.id).filter(id => !keep.includes(id));
+      const toDelete = existing.map(r => String(r.id))
+        .filter(id => !keep.includes(id))
+        .filter(id => !escopo || escopo.includes(id));
       if (toDelete.length) {
         const d = await sb.from(table).delete().in('id', toDelete);
         if (d.error) throw new Error(mapError(d.error));
